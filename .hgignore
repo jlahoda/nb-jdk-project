@@ -4,3 +4,4 @@
 ^dist$
 .*/nbproject/private
 ^nbproject/private$
+netbeans_platform
