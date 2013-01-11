@@ -132,7 +132,8 @@ public class JDKProject implements Project {
         this.lookup = Lookups.fixed(cpp,
                                     new OpenProjectHookImpl(cpp),
                                     new SourcesImpl(this),
-                                    new LogicalViewProviderImpl(this));
+                                    new LogicalViewProviderImpl(this),
+                                    new SourceLevelQueryImpl());
     }
     
     private static String stripTrailingSlash(String from) {
