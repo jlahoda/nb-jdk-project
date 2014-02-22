@@ -41,15 +41,24 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.beans.PropertyChangeListener;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.project.libraries.Library;
+import org.netbeans.api.project.libraries.LibraryManager;
 import org.netbeans.modules.jdk.project.JDKProject.Root;
 import org.netbeans.modules.jdk.project.JDKProject.RootKind;
+import org.netbeans.modules.parsing.spi.indexing.PathRecognizerRegistration;
+import org.netbeans.spi.java.classpath.ClassPathImplementation;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
+import org.netbeans.spi.java.classpath.FilteringPathResourceImplementation;
+import org.netbeans.spi.java.classpath.PathResourceImplementation;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
@@ -61,23 +70,26 @@ import org.openide.util.Exceptions;
  */
 public class ClassPathProviderImpl implements ClassPathProvider {
 
+    private static final Logger LOG = Logger.getLogger(ClassPathProviderImpl.class.getName());
     private static final String[] JDK_CLASSPATH = new String[] {
-        "../build/linux-x86_64-normal-server-release/jaxp/dist/lib/classes.jar",
-        "../build/linux-x86_64-normal-server-release/corba/dist/lib/classes.jar",
+        "{outputRoot}/jaxp/dist/lib/classes.jar",
+        "{outputRoot}/corba/dist/lib/classes.jar",
     };
     
     private final ClassPath bootCP;
     private final ClassPath compileCP;
     private final ClassPath sourceCP;
+    private final ClassPath testsCompileCP;
+    private final ClassPath testsRegCP;
 
     public ClassPathProviderImpl(JDKProject project) {
         bootCP = ClassPath.EMPTY;
         
-        List<URL> compileElements = new ArrayList<URL>();
+        List<URL> compileElements = new ArrayList<>();
         
         for (String cp : JDK_CLASSPATH) {
             try {
-                compileElements.add(FileUtil.getArchiveRoot(project.getProjectDirectory().toURI().resolve(cp).toURL()));
+                compileElements.add(FileUtil.getArchiveRoot(project.resolve(cp).toURL()));
             } catch (MalformedURLException ex) {
                 Exceptions.printStackTrace(ex);
             }
@@ -85,40 +97,108 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         
         compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
         
-        List<URL> sourceRoots = new ArrayList<URL>();
+        List<PathResourceImplementation> sourceRoots = new ArrayList<>();
+        List<PathResourceImplementation> testsRegRoots = new ArrayList<>();
         
         for (Root root : project.getRoots()) {
             if (root.kind == RootKind.MAIN_SOURCES) {
-                sourceRoots.add(root.location);
+                sourceRoots.add(new PathResourceImpl(root));
+            } else {
+                testsRegRoots.add(new PathResourceImpl(root));
             }
         }
         
-        sourceCP = ClassPathSupport.createClassPath(sourceRoots.toArray(new URL[sourceRoots.size()]));
+        sourceCP = ClassPathSupport.createClassPath(sourceRoots);
+        List<URL> testCompileRoots = new ArrayList<>();
+        try {
+            testCompileRoots.add(project.getFakeOutput().toURL());
+        } catch (MalformedURLException ex) {
+            LOG.log(Level.FINE, null, ex);
+        }
+        Library testng = LibraryManager.getDefault().getLibrary("testng");
+        if (testng != null) {
+            testCompileRoots.addAll(testng.getContent("classpath"));
+        }
+        testsCompileCP = ClassPathSupport.createClassPath(testCompileRoots.toArray(new URL[0]));
+        testsRegCP = ClassPathSupport.createClassPath(testsRegRoots);
     }
     
     @Override
     public ClassPath findClassPath(FileObject file, String type) {
-        if (ClassPath.BOOT.equals(type)) {
-            return bootCP;
-        } else if (ClassPath.COMPILE.equals(type)) {
-            return compileCP;
-        } else if (ClassPath.SOURCE.equals(type)) {
-            return sourceCP;
+        if (sourceCP.findOwnerRoot(file) != null) {
+            if (ClassPath.BOOT.equals(type)) {
+                return bootCP;
+            } else if (ClassPath.COMPILE.equals(type)) {
+                return compileCP;
+            } else if (ClassPath.SOURCE.equals(type)) {
+                return sourceCP;
+            }
+        } else {
+            if (file.isFolder()) return null;
+
+            if (ClassPath.BOOT.equals(type)) {
+                return ClassPath.EMPTY;
+            } else if (ClassPath.COMPILE.equals(type)) {
+                return testsCompileCP;
+            }
+
         }
         
         return null;
     }
+
+    public ClassPath getSourceCP() {
+        return sourceCP;
+    }
     
+    private static final String TEST_SOURCE = "jdk-project-test-source";
+
     public void registerClassPaths() {
         GlobalPathRegistry.getDefault().register(ClassPath.BOOT, new ClassPath[] {bootCP});
         GlobalPathRegistry.getDefault().register(ClassPath.COMPILE, new ClassPath[] {compileCP});
         GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+        GlobalPathRegistry.getDefault().register(TEST_SOURCE, new ClassPath[] {testsRegCP});
     }
     
     public void unregisterClassPaths() {
         GlobalPathRegistry.getDefault().unregister(ClassPath.BOOT, new ClassPath[] {bootCP});
         GlobalPathRegistry.getDefault().unregister(ClassPath.COMPILE, new ClassPath[] {compileCP});
         GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+        GlobalPathRegistry.getDefault().unregister(TEST_SOURCE, new ClassPath[] {testsRegCP});
     }
-    
+
+    @PathRecognizerRegistration(sourcePathIds=TEST_SOURCE)
+    private static final class PathResourceImpl implements FilteringPathResourceImplementation {
+
+        private final Root root;
+
+        public PathResourceImpl(Root root) {
+            this.root = root;
+        }
+
+        @Override
+        public boolean includes(URL rootURL, String resource) {
+            return root.excludes == null || !root.excludes.matcher(resource).matches();
+        }
+
+        @Override
+        public URL[] getRoots() {
+            return new URL[] { root.location };
+        }
+
+        @Override
+        public ClassPathImplementation getContent() {
+            return null;
+        }
+
+        @Override
+        public void addPropertyChangeListener(PropertyChangeListener listener) {
+        }
+
+        @Override
+        public void removePropertyChangeListener(PropertyChangeListener listener) {
+        }
+
+    }
+
 }

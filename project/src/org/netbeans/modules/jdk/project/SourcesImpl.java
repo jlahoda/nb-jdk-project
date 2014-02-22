@@ -41,11 +41,14 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Pattern;
+import javax.swing.Icon;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.java.project.JavaProjectConstants;
 import org.netbeans.api.project.SourceGroup;
@@ -80,7 +83,6 @@ public class SourcesImpl implements Sources, FileChangeListener {
             
             File rootFile = new File(r.location.getPath());
             
-            System.err.println("rootFile=" + rootFile.getAbsolutePath());
             FileUtil.addFileChangeListener(this, rootFile);
         }
     }
@@ -116,16 +118,11 @@ public class SourcesImpl implements Sources, FileChangeListener {
     
     private synchronized void recompute() {
         for (Root root : project.getRoots()) {
-            System.err.println(root.location);
             FileObject src = URLMapper.findFileObject(root.location);
             if (src == null) {
-                System.err.println("removing: " + root.location);
                 root2SourceGroup.remove(root);
             } else if (!root2SourceGroup.containsKey(root)) {
-                System.err.println("adding: " + root.location);
-                root2SourceGroup.put(root, GenericSources.group(project, src, root.displayName, root.displayName, null, null));
-            } else {
-                System.err.println("keeping: " + root.location);
+                root2SourceGroup.put(root, new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes));
             }
         }
         cs.fireChange();
@@ -162,5 +159,57 @@ public class SourcesImpl implements Sources, FileChangeListener {
 
     @Override
     public void fileAttributeChanged(FileAttributeEvent fe) { }
-    
+
+    private static final class SourceGroupImpl implements SourceGroup {
+
+        //XXX: listeners
+        private final SourceGroup delegate;
+        private final Pattern excludes;
+
+        public SourceGroupImpl(SourceGroup delegate, Pattern excludes) {
+            this.delegate = delegate;
+            this.excludes = excludes;
+        }
+
+        @Override
+        public FileObject getRootFolder() {
+            return delegate.getRootFolder();
+        }
+
+        @Override
+        public String getName() {
+            return delegate.getName();
+        }
+
+        @Override
+        public String getDisplayName() {
+            return delegate.getDisplayName();
+        }
+
+        @Override
+        public Icon getIcon(boolean opened) {
+            return delegate.getIcon(opened);
+        }
+
+        @Override
+        public boolean contains(FileObject file) {
+            if (delegate.contains(file)) {
+                if (excludes == null) return true;
+                
+                String rel = FileUtil.getRelativePath(delegate.getRootFolder(), file);
+
+                return !excludes.matcher(rel).matches();
+            } else {
+                return false;
+            }
+        }
+
+        @Override
+        public void addPropertyChangeListener(PropertyChangeListener listener) {
+        }
+
+        @Override
+        public void removePropertyChangeListener(PropertyChangeListener listener) {
+        }
+    }
 }
