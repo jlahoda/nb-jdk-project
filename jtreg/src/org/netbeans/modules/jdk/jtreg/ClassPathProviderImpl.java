@@ -47,6 +47,7 @@ import java.io.InputStreamReader;
 import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
+import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Properties;
@@ -71,7 +72,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
     @Override
     public ClassPath findClassPath(FileObject file, String type) {
-        if (!ClassPath.SOURCE.equals(type)) return null;
+        if (!ClassPath.SOURCE.equals(type) && !ClassPath.COMPILE.equals(type)) return null;
 
         FileObject search = file.getParent();
         FileObject testProperties = null;
@@ -82,6 +83,19 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             }
 
             if (search.getName().equals("test") && search.getFileObject("../src/share/classes") != null) {
+                if (ClassPath.COMPILE.equals(type)) {
+                    if (search.getFileObject("../src/share/classes/com/sun/tools/javac/Main.java") != null) {
+                        //XXX: hack to make things work for langtools
+                        try {
+                            return ClassPathSupport.createClassPath(search.getParent().toURI().resolve("build/classes/").toURL());
+                        } catch (MalformedURLException ex) {
+                            Exceptions.printStackTrace(ex);
+                        }
+                    }
+                    
+                    return ClassPath.EMPTY;
+                }
+
                 Set<FileObject> roots = new HashSet<>();
 
                 if (testProperties != null) {

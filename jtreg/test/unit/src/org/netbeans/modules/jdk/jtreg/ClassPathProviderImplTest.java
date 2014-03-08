@@ -88,7 +88,6 @@ public class ClassPathProviderImplTest extends NbTestCase {
         FileObject testLib2 = FileUtil.createData(new File(workDir, "test/lib2/Lib2.java"));
         ClassPath sourceCP = new ClassPathProviderImpl().findClassPath(testFile, ClassPath.SOURCE);
 
-        System.err.println("sourceCP=" + Arrays.toString(sourceCP.getRoots()));
         Assert.assertEquals(new HashSet<>(Arrays.asList(testFile.getParent(), testLib.getParent(), testLib2.getParent())),
                             new HashSet<>(Arrays.asList(sourceCP.getRoots())));
     }
@@ -104,6 +103,18 @@ public class ClassPathProviderImplTest extends NbTestCase {
 
         Assert.assertEquals(new HashSet<>(Arrays.asList(testUse.getParent().getParent(), testLib.getParent().getParent())),
                             new HashSet<>(Arrays.asList(sourceCP.getRoots())));
+    }
+
+    public void testLangtoolsCompile() throws Exception {
+        File workDir = getWorkDir();
+
+        FileUtil.createData(new File(workDir, "src/share/classes/com/sun/tools/javac/Main.java"));
+        FileObject buildClasses = FileUtil.createFolder(new File(workDir, "build/classes"));
+        FileObject testTest = FileUtil.createData(new File(workDir, "test/feature/Test.java"));
+        ClassPath compileCP = new ClassPathProviderImpl().findClassPath(testTest, ClassPath.COMPILE);
+
+        Assert.assertEquals(new HashSet<>(Arrays.asList(buildClasses)),
+                            new HashSet<>(Arrays.asList(compileCP.getRoots())));
     }
 
     private FileObject createData(String relPath, String content) throws IOException {
