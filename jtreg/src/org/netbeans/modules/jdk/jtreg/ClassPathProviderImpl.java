@@ -43,14 +43,19 @@ package org.netbeans.modules.jdk.jtreg;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.URL;
 import java.util.HashSet;
 import java.util.Properties;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
@@ -86,14 +91,40 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                         Properties p = new Properties();
                         p.load(in);
                         String libDirsText = p.getProperty("lib.dirs");
-                        FileObject libDirsRoot = libDirsText != null ? resolve(file, search, libDirsText) : null;
+                        FileObject libDirsRoot = libDirsText != null ? resolve(testProperties, search, libDirsText) : null;
 
                         if (libDirsRoot != null) roots.add(libDirsRoot);
                     } catch (IOException ex) {
                         Exceptions.printStackTrace(ex);
                     }
                 } else {
+                    if (file.isFolder()) return null;
+                    
                     roots.add(file.getParent());
+                    try (Reader r = new InputStreamReader(file.getInputStream(), FileEncodingQuery.getEncoding(file))) {
+                        StringBuilder content = new StringBuilder();
+                        int read;
+                        
+                        while ((read = r.read()) != (-1)) {
+                            content.append((char) read);
+                        }
+                        
+                        Pattern library = Pattern.compile("@library (.*)\n");
+                        Matcher m = library.matcher(content.toString());
+
+                        if (m.find()) {
+                            String libraryPaths = m.group(1).trim();
+                            for (String libraryPath : libraryPaths.split(" ")) {
+                                FileObject libFO = resolve(file, search, libraryPath);
+
+                                if (libFO != null) {
+                                    roots.add(libFO);
+                                }
+                            }
+                        }
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
+                    }
                 }
 
                 //XXX:
