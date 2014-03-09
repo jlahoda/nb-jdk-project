@@ -72,8 +72,6 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
     @Override
     public ClassPath findClassPath(FileObject file, String type) {
-        if (!ClassPath.SOURCE.equals(type) && !ClassPath.COMPILE.equals(type)) return null;
-
         FileObject search = file.getParent();
         FileObject testProperties = null;
 
@@ -83,17 +81,25 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             }
 
             if (search.getName().equals("test") && search.getFileObject("../src/share/classes") != null) {
-                if (ClassPath.COMPILE.equals(type)) {
-                    if (search.getFileObject("../src/share/classes/com/sun/tools/javac/Main.java") != null) {
-                        //XXX: hack to make things work for langtools
-                        try {
-                            return ClassPathSupport.createClassPath(search.getParent().toURI().resolve("build/classes/").toURL());
-                        } catch (MalformedURLException ex) {
-                            Exceptions.printStackTrace(ex);
+                boolean javac = search.getFileObject("../src/share/classes/com/sun/tools/javac/Main.java") != null;
+                //XXX: hack to make things work for langtools:
+                switch (type) {
+                    case ClassPath.COMPILE:
+                        if (javac) return ClassPath.EMPTY;
+                        else return null;
+                    case ClassPath.BOOT:
+                        if (javac) {
+                            try {
+                                return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(search.getParent().toURI().resolve("build/classes/").toURL()), ClassPath.getClassPath(search.getFileObject("../src/share/classes"), type));
+                            } catch (MalformedURLException ex) {
+                                Exceptions.printStackTrace(ex);
+                            }
                         }
-                    }
-                    
-                    return ClassPath.EMPTY;
+                        return null;
+                    case ClassPath.SOURCE:
+                        break;
+                    default:
+                        return null;
                 }
 
                 Set<FileObject> roots = new HashSet<>();
