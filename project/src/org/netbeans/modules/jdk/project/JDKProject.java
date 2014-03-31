@@ -106,6 +106,17 @@ public class JDKProject implements Project {
 
         variables.put("outputRoot", stripTrailingSlash(outputRoot.toURI().toString()));
 
+        String osKey = "solaris";
+        String osName = System.getProperty("os.name").toLowerCase();
+
+        if (osName.contains("mac")) {
+            osKey = "macosx";
+        } else if (osName.contains("windows")) {
+            osKey = "windows";
+        }
+
+        variables.put("os", osKey);
+
         Configuration configuration = jdkDir.getFileObject("src/closed/share/classes/javax/swing/plaf/basic/icons/JavaCup16.png") != null ?
                 CLOSED_CONFIGURATION : OPEN_CONFIGURATION;
         this.roots = new ArrayList<>(configuration.mainSourceRoots.size());
@@ -211,7 +222,7 @@ public class JDKProject implements Project {
     private static final Configuration OPEN_CONFIGURATION = new Configuration(
             Arrays.asList(Pair.<String, String>of("{basedir}/src/share/classes/",
                                                   "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
-                          Pair.<String, String>of("{basedir}/src/solaris/classes/", null),
+                          Pair.<String, String>of("{basedir}/src/{os}/classes/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/gensrc/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null)),
             Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
@@ -219,9 +230,9 @@ public class JDKProject implements Project {
 
     private static final Configuration CLOSED_CONFIGURATION = new Configuration(
             Arrays.asList(Pair.<String, String>of("{basedir}/src/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/solaris/classes/", null),
+                          Pair.<String, String>of("{basedir}/src/{os}/classes/", null),
                           Pair.<String, String>of("{basedir}/src/closed/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/closed/solaris/classes/", null),
+                          Pair.<String, String>of("{basedir}/src/closed/{os}/classes/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/gensrc/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null)),
             Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
