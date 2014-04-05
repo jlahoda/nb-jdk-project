@@ -238,12 +238,16 @@ public class JDKProject implements Project {
             Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
     );
 
+    static boolean isJDKProject(FileObject projectDirectory) {
+        return projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null; //TODO: better criterion to find out if this is a JDK project
+    }
+
     @ServiceProvider(service = ProjectFactory.class)
     public static final class JDKProjectFactory implements ProjectFactory {
 
         @Override
         public boolean isProject(FileObject projectDirectory) {
-            return projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null; //TODO: better criterion to find out if this is a JDK project
+            return isJDKProject(projectDirectory);
         }
 
         @Override
