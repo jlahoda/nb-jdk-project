@@ -41,6 +41,7 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.beans.PropertyChangeListener;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -52,15 +53,19 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.regex.Pattern;
+import javax.swing.Icon;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
+import org.netbeans.api.project.ProjectInformation;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
+import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
 import org.openide.util.MapFormat;
+import org.openide.util.NbBundle.Messages;
 import org.openide.util.Pair;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
@@ -143,7 +148,8 @@ public class JDKProject implements Project {
                                     new SourcesImpl(this),
                                     new LogicalViewProviderImpl(this),
                                     new SourceLevelQueryImpl(),
-                                    new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()));
+                                    new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()),
+                                    new ProjectInformationImpl());
     }
 
     private void addRoots(RootKind kind, Iterable<Pair<String, String>> rootSpecifications) {
@@ -260,5 +266,38 @@ public class JDKProject implements Project {
             //no configuration yet.
         }
         
+    }
+
+    @Messages("DN_Project=J2SE - {0}")
+    private final class ProjectInformationImpl implements ProjectInformation {
+
+        @Override
+        public String getName() {
+            return "j2se";
+        }
+
+        @Override
+        public String getDisplayName() {
+            return Bundle.DN_Project(getProjectDirectory().getParent().getNameExt());
+        }
+
+        @Override
+        public Icon getIcon() {
+            return ImageUtilities.loadImageIcon("org/netbeans/modules/jdk/project/resources/jdk-project.png", false);
+        }
+
+        @Override
+        public Project getProject() {
+            return JDKProject.this;
+        }
+
+        @Override
+        public void addPropertyChangeListener(PropertyChangeListener listener) {
+        }
+
+        @Override
+        public void removePropertyChangeListener(PropertyChangeListener listener) {
+        }
+
     }
 }

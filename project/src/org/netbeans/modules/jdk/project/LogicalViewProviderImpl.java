@@ -92,7 +92,7 @@ public class LogicalViewProviderImpl implements LogicalViewProvider  {
         }
 
         private void setDisplayName() {
-            setDisplayName("J2SE");
+            setDisplayName(ProjectUtils.getInformation(project).getDisplayName());
         }
 
         @Override
