@@ -56,6 +56,8 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.source.JavaSource;
+import org.netbeans.api.project.libraries.Library;
+import org.netbeans.api.project.libraries.LibraryManager;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -85,7 +87,15 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                 //XXX: hack to make things work for langtools:
                 switch (type) {
                     case ClassPath.COMPILE:
-                        if (javac) return ClassPath.EMPTY;
+                        if (javac) {
+                            Library testngLib = LibraryManager.getDefault().getLibrary("testng");
+
+                            if (testngLib != null) {
+                                return ClassPathSupport.createClassPath(testngLib.getContent("classpath").toArray(new URL[0]));
+                            }
+                            
+                            return ClassPath.EMPTY;
+                        }
                         else return null;
                     case ClassPath.BOOT:
                         if (javac) {
