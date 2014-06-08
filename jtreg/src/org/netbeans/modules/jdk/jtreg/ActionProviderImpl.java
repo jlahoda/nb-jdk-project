@@ -55,6 +55,7 @@ import org.openide.cookies.EditorCookie;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.modules.Places;
+import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.Task;
 import org.openide.util.TaskListener;
@@ -107,11 +108,11 @@ public class ActionProviderImpl implements ActionProvider {
             AntTargetExecutor.createTargetExecutor(new Env()).execute(apc, new String[0]).addTaskListener(new TaskListener() {
                 @Override
                 public void taskFinished(Task task) {
-//                    try {
-//                        tempBuildScript.delete();
-//                    } catch (IOException ex) {
-//                        Exceptions.printStackTrace(ex);
-//                    }
+                    try {
+                        tempBuildScript.delete();
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
+                    }
                 }
             });
         } catch (BadLocationException | IOException ex) {
