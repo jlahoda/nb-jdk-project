@@ -95,6 +95,10 @@ public class TagParser {
         result.append("<project name='" + source.getName() + "' basedir='.'>\n");
         result.append("<delete dir='" + testScratch.getAbsolutePath() + "' />\n");
         result.append("<mkdir dir='" + testScratch.getAbsolutePath() + "' />\n");
+        if (new File(srcDir, "src/share/classes/com/sun/tools/javac/Main.java").canRead()) {
+            //langtools:
+            result.append("<ant antfile='" + /*XXX: */srcDir.getAbsolutePath() + "/make/build.xml' useNativeBasedir='true' target='build' />\n");
+        }
         result.append("<taskdef resource='testngtasks' classpath='" + compileCP() + "'/>\n");
 
         boolean wasActiveTag = false;
