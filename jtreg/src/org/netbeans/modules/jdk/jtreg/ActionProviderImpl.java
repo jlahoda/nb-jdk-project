@@ -52,6 +52,7 @@ import org.apache.tools.ant.module.api.AntTargetExecutor.Env;
 import org.netbeans.api.queries.FileEncodingQuery;
 import org.netbeans.spi.project.ActionProvider;
 import org.openide.cookies.EditorCookie;
+import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.modules.Places;
@@ -80,44 +81,55 @@ public class ActionProviderImpl implements ActionProvider {
     @Override
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
         try {
-            FileObject file = context.lookup(FileObject.class);
-            EditorCookie ec = file.getLookup().lookup(EditorCookie.class);
-            StyledDocument doc = ec.getDocument();
-            String content;
-
-            if (doc != null) {
-                content = doc.getText(0, doc.getLength()); //XXX: synchronization
-            } else {
-                content = file.asText(FileEncodingQuery.getEncoding(file).name());
-            }
-
-            String buildScript = new TagParser(file).translate(content);
-            File builds = Places.getCacheSubdirectory("jtreg-support");
-            File buildFile;
-            int i = 0;
-            while ((buildFile = new File(builds, "build" + (i > 0 ? i : "") + ".xml")).exists())
-                i++;
-            final FileObject tempBuildScript = FileUtil.createData(buildFile);
-
-            try (OutputStream out = tempBuildScript.getOutputStream()) {
-                out.write(buildScript.getBytes("UTF-8"));
-            }
-
-            AntProjectCookie apc = tempBuildScript.getLookup().lookup(AntProjectCookie.class);
-
-            AntTargetExecutor.createTargetExecutor(new Env()).execute(apc, new String[0]).addTaskListener(new TaskListener() {
-                @Override
-                public void taskFinished(Task task) {
-                    try {
-                        tempBuildScript.delete();
-                    } catch (IOException ex) {
-                        Exceptions.printStackTrace(ex);
-                    }
-                }
-            });
+            createAndRunTestUnderDebugger(context);
         } catch (BadLocationException | IOException ex) {
             throw new IllegalStateException(ex);
         }
+    }
+
+    //public for test
+    public static ExecutorTask createAndRunTestUnderDebugger(Lookup context) throws BadLocationException, IOException {
+        FileObject file = context.lookup(FileObject.class);
+        EditorCookie ec = file.getLookup().lookup(EditorCookie.class);
+        StyledDocument doc = ec.getDocument();
+        String content;
+
+        if (doc != null) {
+            content = doc.getText(0, doc.getLength()); //XXX: synchronization
+        } else {
+            content = file.asText(FileEncodingQuery.getEncoding(file).name());
+        }
+
+        String buildScript = new TagParser(file).translate(content);
+        System.err.println("buildScript=" + buildScript);
+        File builds = Places.getCacheSubdirectory("jtreg-support");
+        File buildFile;
+
+        int i = 0;
+        while ((buildFile = new File(builds, "build" + (i > 0 ? i : "") + ".xml")).exists())
+            i++;
+
+        final FileObject tempBuildScript = FileUtil.createData(buildFile);
+
+        try (OutputStream out = tempBuildScript.getOutputStream()) {
+            out.write(buildScript.getBytes("UTF-8"));
+        }
+
+        AntProjectCookie apc = tempBuildScript.getLookup().lookup(AntProjectCookie.class);
+        ExecutorTask executor = AntTargetExecutor.createTargetExecutor(new Env()).execute(apc, new String[0]);
+
+        executor.addTaskListener(new TaskListener() {
+            @Override
+            public void taskFinished(Task task) {
+                try {
+                    tempBuildScript.delete();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+        });
+
+        return executor;
     }
 
     @Override
