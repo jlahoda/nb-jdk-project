@@ -101,7 +101,6 @@ public class ActionProviderImpl implements ActionProvider {
         }
 
         String buildScript = new TagParser(file).translate(content);
-        System.err.println("buildScript=" + buildScript);
         File builds = Places.getCacheSubdirectory("jtreg-support");
         File buildFile;
 
