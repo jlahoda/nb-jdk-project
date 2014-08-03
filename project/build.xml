@@ -5,4 +5,16 @@
 <project name="org.netbeans.modules.jdk.project" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jdk.project.</description>
     <import file="nbproject/build-impl.xml"/>
+    <target name="compile" depends="projectized-common.compile">
+        <mkdir dir="${build.dir}/fakeJdkClasses/java/lang" />
+        <mkdir dir="${build.dir}/fakeJdkClasses/java/util/stream" />
+        <touch file="${build.dir}/fakeJdkClasses/java/lang/AssertionError.class" />
+        <touch file="${build.dir}/fakeJdkClasses/java/lang/StringBuilder.class" />
+        <touch file="${build.dir}/fakeJdkClasses/java/lang/AutoCloseable.class" />
+        <touch file="${build.dir}/fakeJdkClasses/java/util/stream/Streams.class" />
+
+        <zip file="${cluster}/${module.jar.dir}/ext/fakeJdkClasses.zip">
+            <fileset dir="${build.dir}/fakeJdkClasses" />
+        </zip>
+    </target>
 </project>

@@ -42,6 +42,7 @@
 package org.netbeans.modules.jdk.project;
 
 import java.beans.PropertyChangeListener;
+import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
@@ -62,6 +63,7 @@ import org.netbeans.spi.java.classpath.PathResourceImplementation;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.modules.InstalledFileLocator;
 import org.openide.util.Exceptions;
 
 /**
@@ -118,6 +120,10 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         Library testng = LibraryManager.getDefault().getLibrary("testng");
         if (testng != null) {
             testCompileRoots.addAll(testng.getContent("classpath"));
+        }
+        File fakeJdk = InstalledFileLocator.getDefault().locate("modules/ext/fakeJdkClasses.zip", "org.netbeans.modules.jdk.project", false);
+        if (fakeJdk != null) {
+            testCompileRoots.add(FileUtil.urlForArchiveOrDir(fakeJdk));
         }
         testsCompileCP = ClassPathSupport.createClassPath(testCompileRoots.toArray(new URL[0]));
         testsRegCP = ClassPathSupport.createClassPath(testsRegRoots);
