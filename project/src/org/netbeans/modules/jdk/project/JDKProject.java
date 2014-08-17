@@ -52,11 +52,15 @@ import java.util.Arrays;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.swing.Icon;
+import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectInformation;
+import org.netbeans.modules.jdk.project.ModuleDescription.ModuleRepository;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
 import org.openide.filesystems.FileObject;
@@ -76,21 +80,29 @@ import org.openide.util.lookup.ServiceProvider;
  */
 public class JDKProject implements Project {
 
-    private final FileObject jdkDir;
+    private final FileObject projectDir;
     private final Lookup lookup;
     private final List<Root> roots;
     private final MapFormat resolver;
     private final URI fakeOutput;
+            final ModuleRepository moduleRepository;
+            final ModuleDescription currentModule;
 
-    public JDKProject(FileObject jdkDir) {
-        this.jdkDir = jdkDir;
+    public JDKProject(FileObject projectDir, @NullAllowed ModuleRepository moduleRepository, @NullAllowed ModuleDescription currentModule) {
+        this.projectDir = projectDir;
+        this.moduleRepository = moduleRepository;
+        this.currentModule = currentModule;
         
-        URI jdkDirURI = jdkDir.toURI();
+        URI jdkDirURI = projectDir.toURI();
         Map<String, String> variables = new HashMap<>();
         
         variables.put("basedir", stripTrailingSlash(jdkDirURI.toString()));
 
-        FileObject buildDir = jdkDir.getFileObject("../build");
+        FileObject buildDir = projectDir.getFileObject("../build");
+
+        if (buildDir == null) {
+            buildDir = projectDir.getFileObject("../../../build");
+        }
 
         if (buildDir == null) {
             throw new IllegalStateException("Currently requires buildDir");
@@ -110,20 +122,44 @@ public class JDKProject implements Project {
         }
 
         variables.put("outputRoot", stripTrailingSlash(outputRoot.toURI().toString()));
+        variables.put("module", projectDir.getNameExt());
 
-        String osKey = "solaris";
+        String osKey;
         String osName = System.getProperty("os.name").toLowerCase();
 
         if (osName.contains("mac")) {
             osKey = "macosx";
         } else if (osName.contains("windows")) {
             osKey = "windows";
+        } else if (osName.contains("solaris")) {
+            osKey = "solaris";
+        } else {
+            osKey = "linux";
+        }
+
+        String legacyOsKey;
+        String generalizedOsKey;
+
+        switch (osKey) {
+            case "macosx": generalizedOsKey = "unix"; legacyOsKey = "macosx"; break;
+            case "solaris": generalizedOsKey = "unix"; legacyOsKey = "solaris"; break;
+            case "linux": generalizedOsKey = "unix"; legacyOsKey = "solaris"; break;
+            case "window": generalizedOsKey = "<none>"; legacyOsKey = "windows"; break;
+            default:
+                throw new IllegalStateException(osKey);
         }
 
         variables.put("os", osKey);
+        variables.put("generalized-os", generalizedOsKey);
+        variables.put("legacy-os", legacyOsKey);
+        FileObject jdkRoot = projectDir.getFileObject("../../..");
+        variables.put("jdkRoot", stripTrailingSlash(jdkRoot.toURI().toString()));
 
-        Configuration configuration = jdkDir.getFileObject("src/closed/share/classes/javax/swing/plaf/basic/icons/JavaCup16.png") != null ?
-                CLOSED_CONFIGURATION : OPEN_CONFIGURATION;
+        boolean closed = projectDir.getFileObject("src/closed/share/classes/javax/swing/plaf/basic/icons/JavaCup16.png") != null;
+        boolean modular = currentModule != null;
+        Configuration configuration =  modular ? closed ? MODULAR_CLOSED_CONFIGURATION : MODULAR_OPEN_CONFIGURATION
+                                               : closed ? LEGACY_CLOSED_CONFIGURATION : LEGACY_OPEN_CONFIGURATION;
+        
         this.roots = new ArrayList<>(configuration.mainSourceRoots.size());
         this.resolver = new MapFormat(variables);
         
@@ -141,7 +177,24 @@ public class JDKProject implements Project {
         } catch (MalformedURLException | URISyntaxException ex) {
             throw new IllegalStateException(ex);
         }
-        
+
+        if (currentModule != null) {
+            //XXX: hacks for modules that exist in more than one repository - would be better to handle them automatically.
+            switch (currentModule.name) {
+                case "java.base":
+                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/langtools/src/java.base/share/classes/", null)));
+                    //TODO: what to do with the test folder? make it part of java.base for now
+                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/jdk/test/", null)));
+                    break;
+                case "jdk.compiler":
+                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/jdk/src/jdk.compiler/share/classes/", null)));
+                    break;
+                case "jdk.dev":
+                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/jdk/src/jdk.dev/share/classes/", null)));
+                    break;
+            }
+        }
+
         ClassPathProviderImpl cpp = new ClassPathProviderImpl(this);
         this.lookup = Lookups.fixed(cpp,
                                     new OpenProjectHookImpl(cpp),
@@ -172,7 +225,7 @@ public class JDKProject implements Project {
     
     @Override
     public FileObject getProjectDirectory() {
-        return jdkDir;
+        return projectDir;
     }
 
     @Override
@@ -225,27 +278,50 @@ public class JDKProject implements Project {
         }
     }
 
-    private static final Configuration OPEN_CONFIGURATION = new Configuration(
+    private static final Configuration LEGACY_OPEN_CONFIGURATION = new Configuration(
             Arrays.asList(Pair.<String, String>of("{basedir}/src/share/classes/",
                                                   "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
-                          Pair.<String, String>of("{basedir}/src/{os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/src/{legacy-os}/classes/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/gensrc/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null)),
             Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
     );
 
-    private static final Configuration CLOSED_CONFIGURATION = new Configuration(
+    private static final Configuration LEGACY_CLOSED_CONFIGURATION = new Configuration(
             Arrays.asList(Pair.<String, String>of("{basedir}/src/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/{os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/src/{legacy-os}/classes/", null),
                           Pair.<String, String>of("{basedir}/src/closed/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/closed/{os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/src/closed/{legacy-os}/classes/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/gensrc/", null),
                           Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null)),
             Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
+    );
+
+    private static final Configuration MODULAR_OPEN_CONFIGURATION = new Configuration(
+            Arrays.asList(Pair.<String, String>of("{basedir}/share/classes/",
+                                                  "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
+                          Pair.<String, String>of("{basedir}/{os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/{generalized-os}/classes/", null),
+//                          Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null),
+                          Pair.<String, String>of("{outputRoot}/jdk/gensrc/{module}/", null)),
+            Arrays.<Pair<String, String>>asList()
+    );
+
+    private static final Configuration MODULAR_CLOSED_CONFIGURATION = new Configuration(
+            Arrays.asList(Pair.<String, String>of("{basedir}/share/classes/", null),
+                          Pair.<String, String>of("{basedir}/{os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/{generalized-os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/closed/share/classes/", null),
+                          Pair.<String, String>of("{basedir}/closed/{os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/closed/{generalized-os}/classes/", null),
+//                          Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null),
+                          Pair.<String, String>of("{outputRoot}/jdk/gensrc/{module}/", null)),
+            Arrays.<Pair<String, String>>asList()
     );
 
     static boolean isJDKProject(FileObject projectDirectory) {
-        return projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null; //TODO: better criterion to find out if this is a JDK project
+        return projectDirectory.getFileObject("../../../modules.xml") != null ||
+               projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null;
     }
 
     @ServiceProvider(service = ProjectFactory.class)
@@ -258,7 +334,47 @@ public class JDKProject implements Project {
 
         @Override
         public Project loadProject(FileObject projectDirectory, ProjectState state) throws IOException {
-            return isProject(projectDirectory) ? new JDKProject(projectDirectory) : null;
+            if (isProject(projectDirectory)) {
+                Project prj = loadModularProject(projectDirectory);
+
+                if (prj != null)
+                    return prj;
+
+                if (projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null) {
+                    //legacy project:
+                    return new JDKProject(projectDirectory, null, null);
+                }
+            }
+
+            return null;
+        }
+
+        private Project loadModularProject(FileObject projectDirectory) {
+            try {
+                FileObject jdkRoot = projectDirectory.getFileObject("../../..");
+                ModuleRepository repository = ModuleDescription.getModules(jdkRoot);
+                
+                if (repository == null) {
+                    return null;
+                }
+                
+                ModuleDescription thisModule = repository.findModule(projectDirectory.getNameExt());
+
+                if (thisModule == null) {
+                    return null;
+                }
+
+                if (!projectDirectory.equals(repository.findModuleRoot(thisModule.name))) {
+                    return null;
+                }
+
+
+                return new JDKProject(projectDirectory, repository, thisModule);
+            } catch (Exception ex) {
+                ex.printStackTrace();
+                Logger.getLogger(JDKProject.class.getName()).log(Level.FINE, null, ex);
+                return null;
+            }
         }
 
         @Override
@@ -268,7 +384,10 @@ public class JDKProject implements Project {
         
     }
 
-    @Messages("DN_Project=J2SE - {0}")
+    @Messages({
+        "DN_Project=J2SE - {0}",
+        "DN_Module=Module - {0}"
+    })
     private final class ProjectInformationImpl implements ProjectInformation {
 
         @Override
@@ -278,7 +397,8 @@ public class JDKProject implements Project {
 
         @Override
         public String getDisplayName() {
-            return Bundle.DN_Project(getProjectDirectory().getParent().getNameExt());
+            return currentModule != null ? Bundle.DN_Module(getProjectDirectory().getNameExt())
+                                         : Bundle.DN_Project(getProjectDirectory().getParent().getNameExt());
         }
 
         @Override

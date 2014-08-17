@@ -87,16 +87,40 @@ public class ClassPathProviderImpl implements ClassPathProvider {
     public ClassPathProviderImpl(JDKProject project) {
         bootCP = ClassPath.EMPTY;
         
+        File fakeJdk = InstalledFileLocator.getDefault().locate("modules/ext/fakeJdkClasses.zip", "org.netbeans.modules.jdk.project", false);
+        URL fakeJdkURL = null;
+        if (fakeJdk != null) {
+            fakeJdkURL = FileUtil.urlForArchiveOrDir(fakeJdk);
+        }
+
         List<URL> compileElements = new ArrayList<>();
-        
-        for (String cp : JDK_CLASSPATH) {
-            try {
-                compileElements.add(FileUtil.getArchiveRoot(project.resolve(cp).toURL()));
-            } catch (MalformedURLException ex) {
-                Exceptions.printStackTrace(ex);
+
+        if (project.currentModule != null) {
+            for (String dep : project.currentModule.depend) {
+                FileObject depFO = project.moduleRepository.findModuleRoot(dep);
+
+                if (depFO == null)
+                    continue; //!!!
+
+                try {
+                    compileElements.add(projectDir2FakeTarget(depFO));
+                } catch (MalformedURLException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+            if (fakeJdkURL != null) {
+                compileElements.add(fakeJdkURL);
+            }
+        } else {
+            for (String cp : JDK_CLASSPATH) {
+                try {
+                    compileElements.add(FileUtil.getArchiveRoot(project.resolve(cp).toURL()));
+                } catch (MalformedURLException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
             }
         }
-        
+
         compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
         
         List<PathResourceImplementation> sourceRoots = new ArrayList<>();
@@ -112,23 +136,41 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         
         sourceCP = ClassPathSupport.createClassPath(sourceRoots);
         List<URL> testCompileRoots = new ArrayList<>();
-        try {
-            testCompileRoots.add(project.getFakeOutput().toURL());
-        } catch (MalformedURLException ex) {
-            LOG.log(Level.FINE, null, ex);
+        if (project.currentModule != null) {
+            for (ModuleDescription mod : project.moduleRepository.modules) {
+                FileObject depFO = project.moduleRepository.findModuleRoot(mod.name);
+
+                if (depFO == null)
+                    continue; //!!!
+
+                try {
+                    testCompileRoots.add(projectDir2FakeTarget(depFO));
+                } catch (MalformedURLException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+        } else {
+            try {
+                testCompileRoots.add(project.getFakeOutput().toURL());
+            } catch (MalformedURLException ex) {
+                LOG.log(Level.FINE, null, ex);
+            }
         }
         Library testng = LibraryManager.getDefault().getLibrary("testng");
         if (testng != null) {
             testCompileRoots.addAll(testng.getContent("classpath"));
         }
-        File fakeJdk = InstalledFileLocator.getDefault().locate("modules/ext/fakeJdkClasses.zip", "org.netbeans.modules.jdk.project", false);
-        if (fakeJdk != null) {
-            testCompileRoots.add(FileUtil.urlForArchiveOrDir(fakeJdk));
+        if (fakeJdkURL != null) {
+            testCompileRoots.add(fakeJdkURL);
         }
         testsCompileCP = ClassPathSupport.createClassPath(testCompileRoots.toArray(new URL[0]));
         testsRegCP = ClassPathSupport.createClassPath(testsRegRoots);
     }
-    
+
+    private static URL projectDir2FakeTarget(FileObject projectDir) throws MalformedURLException {
+        return FileUtil.getArchiveRoot(projectDir.toURI().resolve("fake-target.jar").toURL());
+    }
+
     @Override
     public ClassPath findClassPath(FileObject file, String type) {
         if (sourceCP.findOwnerRoot(file) != null) {
