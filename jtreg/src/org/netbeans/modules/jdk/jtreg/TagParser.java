@@ -73,14 +73,14 @@ public class TagParser {
     public TagParser(FileObject source) {
         this.source = source;
 
-        File searchRoot = FileUtil.toFile(source);
+        FileObject searchRoot = source;
 
-        while (!new File(searchRoot, "src/share/classes").canRead())
-            searchRoot = searchRoot.getParentFile();
+        while (!Utilities.isJDKRepository(searchRoot))
+            searchRoot = searchRoot.getParent();
 
-        this.srcDir = searchRoot;
-        this.targetDir = new File(searchRoot, "build/classes");
-        this.testScratch = new File(searchRoot, "build/nb-test-scratch");
+        this.srcDir = FileUtil.toFile(searchRoot);
+        this.targetDir = new File(this.srcDir, "build/classes");
+        this.testScratch = new File(this.srcDir, "build/nb-test-scratch");
 
         sourcePath = ClassPath.getClassPath(source, ClassPath.SOURCE);
         compilePath = ClassPath.getClassPath(source, ClassPath.COMPILE);

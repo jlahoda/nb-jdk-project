@@ -139,7 +139,7 @@ public class ActionProviderImpl implements ActionProvider {
             return false;
         
         while (!file.isRoot()) {
-            if (file.getFileObject("src/share/classes/com/sun/tools/javac/main/Main.java") != null)
+            if (Utilities.isLangtoolsRepository(file))
                 return true;
             file = file.getParent();
         }

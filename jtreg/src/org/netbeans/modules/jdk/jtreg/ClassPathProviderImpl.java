@@ -82,25 +82,28 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                 testProperties =  search.getFileObject("TEST.properties");
             }
 
-            if (search.getName().equals("test") && search.getFileObject("../src/share/classes") != null) {
-                boolean javac = search.getFileObject("../src/share/classes/com/sun/tools/javac/Main.java") != null;
+            if (search.getName().equals("test") && Utilities.isJDKRepository(search.getParent())) {
+                boolean javac = Utilities.isLangtoolsRepository(search.getParent());
                 //XXX: hack to make things work for langtools:
                 switch (type) {
                     case ClassPath.COMPILE:
                         if (javac) {
+                            ClassPath langtoolsCP = ClassPath.getClassPath(Utilities.getLangtoolsKeyRoot(search.getParent()), ClassPath.COMPILE);
                             Library testngLib = LibraryManager.getDefault().getLibrary("testng");
 
                             if (testngLib != null) {
-                                return ClassPathSupport.createClassPath(testngLib.getContent("classpath").toArray(new URL[0]));
+                                return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(testngLib.getContent("classpath").toArray(new URL[0])),
+                                                                             langtoolsCP);
                             }
                             
-                            return ClassPath.EMPTY;
+                            return langtoolsCP;
                         }
                         else return null;
                     case ClassPath.BOOT:
                         if (javac) {
                             try {
-                                return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(search.getParent().toURI().resolve("build/classes/").toURL()), ClassPath.getClassPath(search.getFileObject("../src/share/classes"), type));
+                                ClassPath langtoolsBCP = ClassPath.getClassPath(Utilities.getLangtoolsKeyRoot(search.getParent()), ClassPath.BOOT);
+                                return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(search.getParent().toURI().resolve("build/classes/").toURL()), langtoolsBCP);
                             } catch (MalformedURLException ex) {
                                 Exceptions.printStackTrace(ex);
                             }
