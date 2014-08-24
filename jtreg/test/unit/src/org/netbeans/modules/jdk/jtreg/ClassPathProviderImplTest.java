@@ -108,7 +108,7 @@ public class ClassPathProviderImplTest extends NbTestCase {
     public void testLangtoolsCP() throws Exception {
         File workDir = getWorkDir();
 
-        FileUtil.createData(new File(workDir, "src/share/classes/com/sun/tools/javac/Main.java"));
+        FileUtil.createData(new File(workDir, "src/share/classes/com/sun/tools/javac/main/Main.java"));
         FileObject buildClasses = FileUtil.createFolder(new File(workDir, "build/classes"));
         FileObject testTest = FileUtil.createData(new File(workDir, "test/feature/Test.java"));
         ClassPath bootCP = new ClassPathProviderImpl().findClassPath(testTest, ClassPath.BOOT);

@@ -95,8 +95,11 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                                 return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(testngLib.getContent("classpath").toArray(new URL[0])),
                                                                              langtoolsCP);
                             }
-                            
-                            return langtoolsCP;
+
+                            if (langtoolsCP == null)
+                                return ClassPath.EMPTY;
+                            else
+                                return langtoolsCP;
                         }
                         else return null;
                     case ClassPath.BOOT:
