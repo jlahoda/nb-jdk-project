@@ -41,7 +41,9 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.beans.PropertyChangeSupport;
 import java.io.File;
 import java.net.MalformedURLException;
 import java.net.URL;
@@ -49,6 +51,8 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
 import org.netbeans.api.project.libraries.Library;
@@ -61,6 +65,7 @@ import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.FilteringPathResourceImplementation;
 import org.netbeans.spi.java.classpath.PathResourceImplementation;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.netbeans.spi.project.support.ant.PropertyEvaluator;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.modules.InstalledFileLocator;
@@ -74,8 +79,8 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
     private static final Logger LOG = Logger.getLogger(ClassPathProviderImpl.class.getName());
     private static final String[] JDK_CLASSPATH = new String[] {
-        "{outputRoot}/jaxp/dist/lib/classes.jar",
-        "{outputRoot}/corba/dist/lib/classes.jar",
+        "${outputRoot}/jaxp/dist/lib/classes.jar",
+        "${outputRoot}/corba/dist/lib/classes.jar",
     };
     
     private final ClassPath bootCP;
@@ -93,9 +98,9 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             fakeJdkURL = FileUtil.urlForArchiveOrDir(fakeJdk);
         }
 
-        List<URL> compileElements = new ArrayList<>();
-
         if (project.currentModule != null) {
+            List<URL> compileElements = new ArrayList<>();
+
             for (String dep : project.currentModule.depend) {
                 FileObject depFO = project.moduleRepository.findModuleRoot(dep);
 
@@ -111,17 +116,18 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             if (fakeJdkURL != null) {
                 compileElements.add(fakeJdkURL);
             }
+
+            compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
         } else {
+            List<PathResourceImplementation> compileElements = new ArrayList<>();
+
             for (String cp : JDK_CLASSPATH) {
-                try {
-                    compileElements.add(FileUtil.getArchiveRoot(project.resolve(cp).toURL()));
-                } catch (MalformedURLException ex) {
-                    Exceptions.printStackTrace(ex);
-                }
+                compileElements.add(new JarBaseResourceImpl(cp, project.evaluator()));
             }
+            
+            compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
         }
 
-        compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
         
         List<PathResourceImplementation> sourceRoots = new ArrayList<>();
         List<PathResourceImplementation> testsRegRoots = new ArrayList<>();
@@ -216,12 +222,14 @@ public class ClassPathProviderImpl implements ClassPathProvider {
     }
 
     @PathRecognizerRegistration(sourcePathIds=TEST_SOURCE)
-    private static final class PathResourceImpl implements FilteringPathResourceImplementation {
+    private static final class PathResourceImpl implements FilteringPathResourceImplementation, ChangeListener {
 
         private final Root root;
+        private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
 
         public PathResourceImpl(Root root) {
             this.root = root;
+            this.root.addChangeListener(this);
         }
 
         @Override
@@ -231,7 +239,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
         @Override
         public URL[] getRoots() {
-            return new URL[] { root.location };
+            return new URL[] { root.getLocation() };
         }
 
         @Override
@@ -241,10 +249,62 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
         @Override
         public void addPropertyChangeListener(PropertyChangeListener listener) {
+            pcs.addPropertyChangeListener(listener);
         }
 
         @Override
         public void removePropertyChangeListener(PropertyChangeListener listener) {
+            pcs.removePropertyChangeListener(listener);
+        }
+
+        @Override
+        public void stateChanged(ChangeEvent e) {
+            pcs.firePropertyChange(PROP_ROOTS, null, null);
+        }
+
+    }
+
+    private static final class JarBaseResourceImpl implements PathResourceImplementation, PropertyChangeListener {
+
+        private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
+        private final String jar;
+        private final PropertyEvaluator evaluator;
+        private URL location;
+
+        public JarBaseResourceImpl(String jar, PropertyEvaluator evaluator) {
+            this.jar = jar;
+            this.evaluator = evaluator;
+        }
+
+        @Override
+        public synchronized URL[] getRoots() {
+            if (location == null) {
+                location = FileUtil.urlForArchiveOrDir(new File(evaluator.evaluate(jar)));
+            }
+            return new URL[] { location };
+        }
+
+        @Override
+        public ClassPathImplementation getContent() {
+            return null;
+        }
+
+        @Override
+        public void addPropertyChangeListener(PropertyChangeListener listener) {
+            pcs.addPropertyChangeListener(listener);
+        }
+
+        @Override
+        public void removePropertyChangeListener(PropertyChangeListener listener) {
+            pcs.removePropertyChangeListener(listener);
+        }
+
+        @Override
+        public void propertyChange(PropertyChangeEvent evt) {
+            synchronized (this) {
+                location = null;
+            }
+            pcs.firePropertyChange(PROP_ROOTS, null, null);
         }
 
     }

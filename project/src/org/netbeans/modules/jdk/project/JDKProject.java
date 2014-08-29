@@ -41,7 +41,9 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
+import java.io.File;
 import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URI;
@@ -56,19 +58,25 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import javax.swing.Icon;
+import javax.swing.event.ChangeListener;
 import org.netbeans.api.annotations.common.NullAllowed;
-import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectInformation;
+import org.netbeans.api.project.ProjectManager;
+import org.netbeans.modules.jdk.project.ConfigurationImpl.ProviderImpl;
 import org.netbeans.modules.jdk.project.ModuleDescription.ModuleRepository;
+import org.netbeans.spi.project.ProjectConfigurationProvider;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
+import org.netbeans.spi.project.support.ant.PropertyEvaluator;
+import org.netbeans.spi.project.support.ant.PropertyProvider;
+import org.netbeans.spi.project.support.ant.PropertyUtils;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.ChangeSupport;
 import org.openide.util.Exceptions;
 import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
-import org.openide.util.MapFormat;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.Pair;
 import org.openide.util.lookup.Lookups;
@@ -83,10 +91,12 @@ public class JDKProject implements Project {
     private final FileObject projectDir;
     private final Lookup lookup;
     private final List<Root> roots;
-    private final MapFormat resolver;
     private final URI fakeOutput;
             final ModuleRepository moduleRepository;
             final ModuleDescription currentModule;
+    private final PropertyEvaluator evaluator;
+            final MapPropertyProvider properties;
+            final ProviderImpl configurations;
 
     public JDKProject(FileObject projectDir, @NullAllowed ModuleRepository moduleRepository, @NullAllowed ModuleDescription currentModule) {
         this.projectDir = projectDir;
@@ -94,35 +104,11 @@ public class JDKProject implements Project {
         this.currentModule = currentModule;
         
         URI jdkDirURI = projectDir.toURI();
-        Map<String, String> variables = new HashMap<>();
+
+        properties = new MapPropertyProvider();
         
-        variables.put("basedir", stripTrailingSlash(jdkDirURI.toString()));
-
-        FileObject buildDir = projectDir.getFileObject("../build");
-
-        if (buildDir == null) {
-            buildDir = projectDir.getFileObject("../../../build");
-        }
-
-        if (buildDir == null) {
-            throw new IllegalStateException("Currently requires buildDir");
-        }
-
-        FileObject outputRoot = null;
-
-        for (FileObject children : buildDir.getChildren()) {
-            if (children.isFolder()) {
-                outputRoot = children;
-                break;
-            }
-        }
-
-        if (outputRoot == null) {
-            throw new IllegalStateException("Currently requires buildDir");
-        }
-
-        variables.put("outputRoot", stripTrailingSlash(outputRoot.toURI().toString()));
-        variables.put("module", projectDir.getNameExt());
+        properties.setProperty("basedir", stripTrailingSlash(jdkDirURI.toString()));
+        properties.setProperty("module", projectDir.getNameExt());
 
         String osKey;
         String osName = System.getProperty("os.name").toLowerCase();
@@ -149,29 +135,38 @@ public class JDKProject implements Project {
                 throw new IllegalStateException(osKey);
         }
 
-        variables.put("os", osKey);
-        variables.put("generalized-os", generalizedOsKey);
-        variables.put("legacy-os", legacyOsKey);
-        FileObject jdkRoot = projectDir.getFileObject("../../..");
-        variables.put("jdkRoot", stripTrailingSlash(jdkRoot.toURI().toString()));
+        properties.setProperty("os", osKey);
+        properties.setProperty("generalized-os", generalizedOsKey);
+        properties.setProperty("legacy-os", legacyOsKey);
+        FileObject jdkRoot = projectDir.getFileObject("../../.."); //XXX: this is incorrect for legacy projects!!!
+        properties.setProperty("jdkRoot", stripTrailingSlash(jdkRoot.toURI().toString()));
+        configurations = ConfigurationImpl.getProvider(jdkRoot);
 
+        configurations.addPropertyChangeListener(new PropertyChangeListener() {
+            @Override public void propertyChange(PropertyChangeEvent evt) {
+                if (evt.getPropertyName() == null || evt.getPropertyName().equals(ProjectConfigurationProvider.PROP_CONFIGURATION_ACTIVE)) {
+                    updateConfiguration();
+                }
+            }
+        });
+
+        updateConfiguration();
+        
+        evaluator = PropertyUtils.sequentialPropertyEvaluator(properties);
+        
         boolean closed = projectDir.getFileObject("src/closed/share/classes/javax/swing/plaf/basic/icons/JavaCup16.png") != null;
         boolean modular = currentModule != null;
         Configuration configuration =  modular ? closed ? MODULAR_CLOSED_CONFIGURATION : MODULAR_OPEN_CONFIGURATION
                                                : closed ? LEGACY_CLOSED_CONFIGURATION : LEGACY_OPEN_CONFIGURATION;
         
         this.roots = new ArrayList<>(configuration.mainSourceRoots.size());
-        this.resolver = new MapFormat(variables);
-        
-        resolver.setLeftBrace("{");
-        resolver.setRightBrace("}");
         
         addRoots(RootKind.MAIN_SOURCES, configuration.mainSourceRoots);
         addRoots(RootKind.TEST_SOURCES, configuration.testSourceRoots);
 
         URL fakeOutputURL;
         try {
-            URI fakeOutputJar = resolve("{basedir}/fake-target.jar");
+            URI fakeOutputJar = new URI(evaluator.evaluate("${basedir}/fake-target.jar"));
             fakeOutput = FileUtil.getArchiveRoot(fakeOutputJar.toURL()).toURI();
             fakeOutputURL = fakeOutput.toURL();
         } catch (MalformedURLException | URISyntaxException ex) {
@@ -182,15 +177,15 @@ public class JDKProject implements Project {
             //XXX: hacks for modules that exist in more than one repository - would be better to handle them automatically.
             switch (currentModule.name) {
                 case "java.base":
-                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/langtools/src/java.base/share/classes/", null)));
+                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/langtools/src/java.base/share/classes/", null)));
                     //TODO: what to do with the test folder? make it part of java.base for now
-                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/jdk/test/", null)));
+                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/test/", null)));
                     break;
                 case "jdk.compiler":
-                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/jdk/src/jdk.compiler/share/classes/", null)));
+                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/src/jdk.compiler/share/classes/", null)));
                     break;
                 case "jdk.dev":
-                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("{jdkRoot}/jdk/src/jdk.dev/share/classes/", null)));
+                    addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/src/jdk.dev/share/classes/", null)));
                     break;
             }
         }
@@ -202,25 +197,29 @@ public class JDKProject implements Project {
                                     new LogicalViewProviderImpl(this),
                                     new SourceLevelQueryImpl(),
                                     new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()),
-                                    new ProjectInformationImpl());
+                                    new ProjectInformationImpl(),
+                                    configurations);
     }
 
     private void addRoots(RootKind kind, Iterable<Pair<String, String>> rootSpecifications) {
         for (Pair<String, String> sr : rootSpecifications) {
-            try {
-                URI rootURI = new URI(resolver.format(sr.first()));
-
-                roots.add(new Root(sr.first(), sr.first(), kind, rootURI.toURL(), sr.second() != null ? Pattern.compile(sr.second()) : null));
-                FileOwnerQuery.markExternalOwner(rootURI, this, FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
-            } catch (MalformedURLException | URISyntaxException ex) {
-                Exceptions.printStackTrace(ex);
-            }
+            roots.add(new Root(sr.first(), sr.first(), kind, evaluator, sr.second() != null ? Pattern.compile(sr.second()) : null));
         }
     }
     
     private static String stripTrailingSlash(String from) {
         if (from.endsWith("/")) return from.substring(0, from.length() - 1);
         else return from;
+    }
+
+    private void updateConfiguration() {
+        ProjectManager.mutex().readAccess(new Runnable() {
+            @Override public void run() {
+                ConfigurationImpl activeConfig = configurations.getActiveConfiguration();
+                File configurationDir = activeConfig != null ? activeConfig.getLocation() : null;
+                properties.setProperty("outputRoot", configurationDir != null ? stripTrailingSlash(configurationDir.toURI().toString()) : "file:///non-existing");
+            }
+        });
     }
     
     @Override
@@ -237,29 +236,54 @@ public class JDKProject implements Project {
         return roots;
     }
 
-    public final URI resolve(String specification) {
-        return URI.create(resolver.format(specification));
-    }
-
     public URI getFakeOutput() {
         return fakeOutput;
     }
-    
-    public static final class Root {
+
+    public PropertyEvaluator evaluator() {
+        return evaluator;
+    }
+
+    public static final class Root implements PropertyChangeListener {
         public final String relPath;
         public final String displayName;
         public final RootKind kind;
-        public final URL location;
         public final Pattern excludes;
-        private Root(String relPath, String displayName, RootKind kind, URL location) {
-            this(relPath, displayName, kind, location, null);
-        }
-        private Root(String relPath, String displayName, RootKind kind, URL location, Pattern excludes) {
+        private final PropertyEvaluator evaluator;
+        private URL location;
+        private final ChangeSupport cs = new ChangeSupport(this);
+        private Root(String relPath, String displayName, RootKind kind, PropertyEvaluator evaluator, Pattern excludes) {
             this.relPath = relPath;
             this.displayName = displayName;
             this.kind = kind;
-            this.location = location;
+            this.evaluator = evaluator;
             this.excludes = excludes;
+            this.evaluator.addPropertyChangeListener(this);
+
+        }
+        public URL getLocation() {
+            if (location == null) {
+                try {
+                    location = new URL(evaluator.evaluate(relPath));
+                } catch (MalformedURLException ex) {
+                    Exceptions.printStackTrace(ex); //XXX
+                }
+            }
+            return location;
+        }
+
+        @Override
+        public void propertyChange(PropertyChangeEvent evt) {
+            location = null;
+            cs.fireChange();
+        }
+
+        public void addChangeListener(ChangeListener l) {
+            cs.addChangeListener(l);
+        }
+
+        public void removeChangeListener(ChangeListener l) {
+            cs.removeChangeListener(l);
         }
     }
     
@@ -279,43 +303,41 @@ public class JDKProject implements Project {
     }
 
     private static final Configuration LEGACY_OPEN_CONFIGURATION = new Configuration(
-            Arrays.asList(Pair.<String, String>of("{basedir}/src/share/classes/",
+            Arrays.asList(Pair.<String, String>of("${basedir}/src/share/classes/",
                                                   "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
-                          Pair.<String, String>of("{basedir}/src/{legacy-os}/classes/", null),
-                          Pair.<String, String>of("{outputRoot}/jdk/gensrc/", null),
-                          Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null)),
-            Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
+                          Pair.<String, String>of("${basedir}/src/${legacy-os}/classes/", null),
+                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/", null),
+                          Pair.<String, String>of("${outputRoot}/jdk/impsrc/", null)),
+            Arrays.asList(Pair.<String, String>of("${basedir}/test", null))
     );
 
     private static final Configuration LEGACY_CLOSED_CONFIGURATION = new Configuration(
-            Arrays.asList(Pair.<String, String>of("{basedir}/src/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/{legacy-os}/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/closed/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/src/closed/{legacy-os}/classes/", null),
-                          Pair.<String, String>of("{outputRoot}/jdk/gensrc/", null),
-                          Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null)),
-            Arrays.asList(Pair.<String, String>of("{basedir}/test", null))
+            Arrays.asList(Pair.<String, String>of("${basedir}/src/share/classes/", null),
+                          Pair.<String, String>of("${basedir}/src/${legacy-os}/classes/", null),
+                          Pair.<String, String>of("${basedir}/src/closed/share/classes/", null),
+                          Pair.<String, String>of("${basedir}/src/closed/${legacy-os}/classes/", null),
+                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/", null),
+                          Pair.<String, String>of("${outputRoot}/jdk/impsrc/", null)),
+            Arrays.asList(Pair.<String, String>of("${basedir}/test", null))
     );
 
     private static final Configuration MODULAR_OPEN_CONFIGURATION = new Configuration(
-            Arrays.asList(Pair.<String, String>of("{basedir}/share/classes/",
+            Arrays.asList(Pair.<String, String>of("${basedir}/share/classes/",
                                                   "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
-                          Pair.<String, String>of("{basedir}/{os}/classes/", null),
-                          Pair.<String, String>of("{basedir}/{generalized-os}/classes/", null),
-//                          Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null),
-                          Pair.<String, String>of("{outputRoot}/jdk/gensrc/{module}/", null)),
+                          Pair.<String, String>of("${basedir}/${os}/classes/", null),
+                          Pair.<String, String>of("${basedir}/${generalized-os}/classes/", null),
+                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null)),
             Arrays.<Pair<String, String>>asList()
     );
 
     private static final Configuration MODULAR_CLOSED_CONFIGURATION = new Configuration(
-            Arrays.asList(Pair.<String, String>of("{basedir}/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/{os}/classes/", null),
-                          Pair.<String, String>of("{basedir}/{generalized-os}/classes/", null),
-                          Pair.<String, String>of("{basedir}/closed/share/classes/", null),
-                          Pair.<String, String>of("{basedir}/closed/{os}/classes/", null),
-                          Pair.<String, String>of("{basedir}/closed/{generalized-os}/classes/", null),
-//                          Pair.<String, String>of("{outputRoot}/jdk/impsrc/", null),
-                          Pair.<String, String>of("{outputRoot}/jdk/gensrc/{module}/", null)),
+            Arrays.asList(Pair.<String, String>of("${basedir}/share/classes/", null),
+                          Pair.<String, String>of("${basedir}/${os}/classes/", null),
+                          Pair.<String, String>of("${basedir}/${generalized-os}/classes/", null),
+                          Pair.<String, String>of("${basedir}/closed/share/classes/", null),
+                          Pair.<String, String>of("${basedir}/closed/${os}/classes/", null),
+                          Pair.<String, String>of("{basedir}/closed/${generalized-os}/classes/", null),
+                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null)),
             Arrays.<Pair<String, String>>asList()
     );
 
@@ -417,6 +439,33 @@ public class JDKProject implements Project {
 
         @Override
         public void removePropertyChangeListener(PropertyChangeListener listener) {
+        }
+
+    }
+
+    static final class MapPropertyProvider implements PropertyProvider {
+
+        private final Map<String, String> properties = new HashMap<>();
+        private final ChangeSupport cs = new ChangeSupport(this);
+        
+        @Override
+        public Map<String, String> getProperties() {
+            return properties;
+        }
+
+        @Override
+        public void addChangeListener(ChangeListener l) {
+            cs.addChangeListener(l);
+        }
+
+        @Override
+        public void removeChangeListener(ChangeListener l) {
+            cs.removeChangeListener(l);
+        }
+
+        public void setProperty(String key, String value) {
+            properties.put(key, value);
+            cs.fireChange();
         }
 
     }

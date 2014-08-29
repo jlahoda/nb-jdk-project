@@ -43,14 +43,20 @@ package org.netbeans.modules.jdk.project;
 
 import java.beans.PropertyChangeListener;
 import java.io.File;
+import java.net.URISyntaxException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Pattern;
 import javax.swing.Icon;
+import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.java.project.JavaProjectConstants;
+import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
 import static org.netbeans.api.project.Sources.TYPE_GENERIC;
@@ -64,12 +70,14 @@ import org.openide.filesystems.FileRenameEvent;
 import org.openide.filesystems.FileUtil;
 import org.openide.filesystems.URLMapper;
 import org.openide.util.ChangeSupport;
+import org.openide.util.Exceptions;
+import org.openide.util.Utilities;
 
 /**
  *
  * @author lahvac
  */
-public class SourcesImpl implements Sources, FileChangeListener {
+public class SourcesImpl implements Sources, FileChangeListener, ChangeListener {
 
     private final ChangeSupport cs = new ChangeSupport(this);
     private final JDKProject project;
@@ -79,11 +87,7 @@ public class SourcesImpl implements Sources, FileChangeListener {
         this.project = project;
         
         for (Root r : project.getRoots()) {
-            if (!"file".equals(r.location.getProtocol())) continue;
-            
-            File rootFile = new File(r.location.getPath());
-            
-            FileUtil.addFileChangeListener(this, rootFile);
+            r.addChangeListener(this);
         }
     }
 
@@ -115,16 +119,43 @@ public class SourcesImpl implements Sources, FileChangeListener {
 
         return new SourceGroup[0];
     }
+
+    private final Set<File> seen = new HashSet<>();
     
     private synchronized void recompute() {
+        Set<File> newFiles = new HashSet<>();
         for (Root root : project.getRoots()) {
-            FileObject src = URLMapper.findFileObject(root.location);
+            URL srcURL = root.getLocation();
+
+            if ("file".equals(srcURL.getProtocol())) {
+                try {
+                    newFiles.add(Utilities.toFile(srcURL.toURI()));
+                } catch (URISyntaxException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+            }
+
+            FileObject src = URLMapper.findFileObject(srcURL);
             if (src == null) {
                 root2SourceGroup.remove(root);
             } else if (!root2SourceGroup.containsKey(root)) {
                 root2SourceGroup.put(root, new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes));
             }
         }
+        Set<File> added = new HashSet<>(newFiles);
+        added.removeAll(seen);
+        for (File a : added) {
+            FileUtil.addFileChangeListener(this, a);
+            FileOwnerQuery.markExternalOwner(Utilities.toURI(a), project, FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
+        }
+        Set<File> removed = new HashSet<>(seen);
+        removed.removeAll(newFiles);
+        for (File r : removed) {
+            FileUtil.removeFileChangeListener(this, r);
+            FileOwnerQuery.markExternalOwner(Utilities.toURI(r), null, FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
+        }
+        seen.removeAll(removed);
+        seen.addAll(added);
         cs.fireChange();
     }
 
@@ -159,6 +190,11 @@ public class SourcesImpl implements Sources, FileChangeListener {
 
     @Override
     public void fileAttributeChanged(FileAttributeEvent fe) { }
+
+    @Override
+    public void stateChanged(ChangeEvent e) {
+        recompute();
+    }
 
     private static final class SourceGroupImpl implements SourceGroup {
 
