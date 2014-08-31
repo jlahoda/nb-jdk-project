@@ -50,8 +50,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.prefs.Preferences;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
@@ -106,6 +108,7 @@ public class ConfigurationImpl implements ProjectConfiguration {
         private final FileObject jdkRoot;
         private final File buildDir;
         private final PropertyChangeSupport pcs = new PropertyChangeSupport(this);
+        private final Set<File> buildDirsWithListeners = new HashSet<>();
         private List<ConfigurationImpl> configurations = Collections.emptyList();
         private ConfigurationImpl active;
 
@@ -151,11 +154,19 @@ public class ConfigurationImpl implements ProjectConfiguration {
                 }
             }
 
+            Set<File> missingBuildDirs = new HashSet<>(buildDirsWithListeners);
             List<ConfigurationImpl> newConfigurations = new ArrayList<>();
             ConfigurationImpl newActive = null;
 
             if (dirs != null) {
                 for (File dir : dirs) {
+                    if (!missingBuildDirs.remove(dir)) {
+                        FileUtil.addFileChangeListener(this, dir);
+                        buildDirsWithListeners.add(dir);
+                    }
+                    if (!new File(dir, "Makefile").canRead())
+                        continue;
+                    
                     ConfigurationImpl current = configurations2Remove.remove(dir);
 
                     if (current != null) newConfigurations.add(current);
@@ -165,6 +176,11 @@ public class ConfigurationImpl implements ProjectConfiguration {
                         newActive = current;
                     }
                 }
+            }
+
+            for (File removedDir : missingBuildDirs) {
+                FileUtil.removeFileChangeListener(this, removedDir);
+                buildDirsWithListeners.remove(removedDir);
             }
 
             if (newActive == null && dirToSelect != null) {

@@ -43,6 +43,7 @@ package org.netbeans.modules.jdk.project;
 
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.Field;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
@@ -56,6 +57,7 @@ import org.netbeans.spi.project.AuxiliaryProperties;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileSystem.AtomicAction;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 import org.openide.util.lookup.Lookups;
@@ -83,7 +85,7 @@ public class ConfigurationImplTest extends NbTestCase {
         clearWorkDir();
 
         File jdkRoot = getWorkDir();
-        File buildDir = new File(jdkRoot, "build");
+        final File buildDir = new File(jdkRoot, "build");
         FileObject jdkRootFO = FileUtil.toFileObject(jdkRoot);
         FileObject jdkProject = FileUtil.createFolder(jdkRootFO, jdkProjectDir);
 
@@ -118,6 +120,40 @@ public class ConfigurationImplTest extends NbTestCase {
             provider = new ProviderImpl(jdkRootFO, buildDir);
 
             assertConfigurations(provider, "conf1", "conf0", "conf1");
+
+            buildDirFO.delete();
+
+            //verify no listeners inside build directory:
+            Class<?> fileChangeImpl = Class.forName("org.openide.filesystems.FileChangeImpl");
+            Field holders = fileChangeImpl.getDeclaredField("holders");
+            holders.setAccessible(true);
+            Map listeningOn = (Map) ((Map) holders.get(null)).get(provider);
+            assertTrue(listeningOn.toString(), listeningOn.size() == 1 && listeningOn.containsKey(buildDir));
+
+            //create one-by-one:
+            buildDirFO = FileUtil.createFolder(buildDir);
+
+            FileObject conf2 = FileUtil.createFolder(buildDirFO, "conf2");
+
+            assertConfigurations(provider, "conf1", "conf1");
+
+            FileUtil.createData(conf2, "Makefile");
+
+            assertConfigurations(provider, "conf1", "conf1", "conf2");
+            
+            buildDirFO.delete();
+
+            //attempt to create all at once:
+            FileUtil.runAtomicAction(new AtomicAction() {
+                @Override
+                public void run() throws IOException {
+                    File conf3 = new File(new File(buildDir, "conf3"), "Makefile");
+
+                    FileUtil.createData(conf3);
+                }
+            });
+
+            assertConfigurations(provider, "conf1", "conf1", "conf3");
         } finally {
             dir2Project.remove(jdkProject);
         }
