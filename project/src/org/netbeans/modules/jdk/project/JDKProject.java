@@ -198,7 +198,8 @@ public class JDKProject implements Project {
                                     new SourceLevelQueryImpl(),
                                     new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()),
                                     new ProjectInformationImpl(),
-                                    configurations);
+                                    configurations,
+                                    new SubProjectProviderImpl(this));
     }
 
     private void addRoots(RootKind kind, Iterable<Pair<String, String>> rootSpecifications) {
