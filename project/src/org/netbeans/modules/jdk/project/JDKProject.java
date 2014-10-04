@@ -181,6 +181,10 @@ public class JDKProject implements Project {
                     //TODO: what to do with the test folder? make it part of java.base for now
                     addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/test/", null)));
                     break;
+                case "java.compiler":
+                    //TODO: langtools tests
+                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/langtools/test/", null)));
+                    break;
                 case "jdk.compiler":
                     addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/src/jdk.compiler/share/classes/", null)));
                     break;
@@ -198,7 +202,8 @@ public class JDKProject implements Project {
                                     new SourceLevelQueryImpl(),
                                     new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()),
                                     new ProjectInformationImpl(),
-                                    configurations);
+                                    configurations,
+                                    new ActionProviderImpl(this));
     }
 
     private void addRoots(RootKind kind, Iterable<Pair<String, String>> rootSpecifications) {
@@ -342,8 +347,19 @@ public class JDKProject implements Project {
     );
 
     static boolean isJDKProject(FileObject projectDirectory) {
-        return projectDirectory.getFileObject("../../../modules.xml") != null ||
-               projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null;
+        if (projectDirectory.getFileObject("../../../modules.xml") != null) {
+            try {
+                FileObject jdkRoot = projectDirectory.getFileObject("../../..");
+                ModuleRepository repository = ModuleDescription.getModules(jdkRoot);
+
+                return repository != null && repository.findModule(projectDirectory.getNameExt()) != null;
+            } catch (Exception ex) {
+                Logger.getLogger(JDKProject.class.getName()).log(Level.FINE, null, ex);
+                return false;
+            }
+        } else {
+            return projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null;
+        }
     }
 
     @ServiceProvider(service = ProjectFactory.class)
