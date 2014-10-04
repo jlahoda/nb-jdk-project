@@ -77,7 +77,7 @@ public class ActionProviderImplTest extends NbTestCase {
 
     public static Test suite() {
         return NbModuleSuite.createConfiguration(ActionProviderImplTest.class)
-                            .gui(true)
+                            .gui(false)
                             .failOnException(Level.WARNING)
                             .suite();
     }
@@ -89,7 +89,7 @@ public class ActionProviderImplTest extends NbTestCase {
         antPrefs.put("antHome", antHomePath);
     }
 
-    public void XtestModularLangtools() throws Exception {
+    public void testModularLangtools() throws Exception {
         String modularizedJdk9Path = System.getProperty("modularizedJdk9Path");
         assertNotNull(modularizedJdk9Path);
         runLangtoolsTests(modularizedJdk9Path);
@@ -199,6 +199,16 @@ public class ActionProviderImplTest extends NbTestCase {
         public void buildFinished(AntEvent event) {
             outcome = event.getException() == null;
             finished.countDown();
+        }
+
+        @Override
+        public void targetStarted(AntEvent event) {
+            System.out.println(event.getTargetName() + ":");
+        }
+
+        @Override
+        public void messageLogged(AntEvent event) {
+            System.out.println(event.getMessage());
         }
 
         @Override
