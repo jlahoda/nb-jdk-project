@@ -182,7 +182,7 @@ public class ActionProviderImplTest extends NbTestCase {
         
         ap.invokeAction(command, testLookup);
 
-        assertTrue(finished.await(10, TimeUnit.MINUTES));
+        assertTrue(finished.await(60, TimeUnit.MINUTES));
         
         assertTrue(outcome);
 
