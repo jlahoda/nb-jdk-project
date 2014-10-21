@@ -203,6 +203,7 @@ public class JDKProject implements Project {
                                     new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()),
                                     new ProjectInformationImpl(),
                                     configurations,
+                                    new SubProjectProviderImpl(this),
                                     new ActionProviderImpl(this));
     }
 

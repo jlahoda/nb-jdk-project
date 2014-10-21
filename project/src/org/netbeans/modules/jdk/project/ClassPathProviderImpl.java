@@ -125,7 +125,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                 compileElements.add(new JarBaseResourceImpl(cp, project.evaluator()));
             }
             
-            compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
+            compileCP = ClassPathSupport.createClassPath(compileElements);
         }
 
         
