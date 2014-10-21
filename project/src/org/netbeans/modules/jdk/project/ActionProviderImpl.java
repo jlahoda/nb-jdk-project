@@ -119,7 +119,7 @@ public class ActionProviderImpl implements ActionProvider {
         try {
             for (String l : script.asLines("UTF-8")) {
                 if (l.contains("SUPPORTED_ACTIONS:")) {
-                    String[] actions = l.substring(l.indexOf(':')).trim().split(",");
+                    String[] actions = l.substring(l.indexOf(':') + 1).trim().split(",");
                     Set<String> filteredActions = new HashSet<>();
 
                     for (Pair<String, RootKind> k : command2Targets.keySet()) {

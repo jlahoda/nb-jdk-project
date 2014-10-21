@@ -43,6 +43,7 @@ package org.netbeans.modules.jdk.project;
 
 import java.io.File;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -84,7 +85,7 @@ public class ActionProviderImplTest extends NbTestCase {
 
     @Override
     protected void setUp() throws Exception {
-        String antHomePath = System.getProperty("antHomePath");
+        String antHomePath = System.getProperty("antHomePath"); //XXX: validate the antHomePath!!!!!!!!!
         Preferences antPrefs = NbPreferences.root().node("org/apache/tools/ant/module");
         antPrefs.put("antHome", antHomePath);
     }
@@ -176,6 +177,7 @@ public class ActionProviderImplTest extends NbTestCase {
         ActionProvider ap = langtoolsProject.getLookup().lookup(ActionProvider.class);
 
         assertNotNull(ap);
+        assertTrue("action supported: " + command, Arrays.asList(ap.getSupportedActions()).contains(command));
         assertTrue(ap.isActionEnabled(command, testLookup));
 
         finished = new CountDownLatch(1);
