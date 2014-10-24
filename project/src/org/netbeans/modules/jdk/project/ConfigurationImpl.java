@@ -45,6 +45,7 @@ import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.File;
 import java.io.FileFilter;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -67,6 +68,7 @@ import org.openide.filesystems.FileEvent;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileRenameEvent;
 import org.openide.filesystems.FileUtil;
+import org.openide.util.Exceptions;
 
 /**
  *
@@ -215,6 +217,11 @@ public class ConfigurationImpl implements ProjectConfiguration {
         @Override
         public synchronized void setActiveConfiguration(ConfigurationImpl configuration) {
             this.active = configuration;
+            try {
+                jdkRoot.setAttribute("nb-jdk-project-build", configuration.location);
+            } catch (IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
             pcs.firePropertyChange(PROP_CONFIGURATION_ACTIVE, null, active);
             Preferences prefs = prefs();
             if (prefs != null)

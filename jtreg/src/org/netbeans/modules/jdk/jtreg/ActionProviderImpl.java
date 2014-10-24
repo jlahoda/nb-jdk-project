@@ -41,26 +41,38 @@
  */
 package org.netbeans.modules.jdk.jtreg;
 
+import com.sun.javatest.Harness;
+import com.sun.javatest.regtest.Action;
+import com.sun.javatest.regtest.ActionCallBack;
+import com.sun.javatest.regtest.BadArgs;
+import com.sun.javatest.regtest.Main;
+import com.sun.javatest.regtest.Main.Fault;
 import java.io.File;
 import java.io.IOException;
-import java.io.OutputStream;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.LinkedList;
+import java.util.List;
 import javax.swing.text.BadLocationException;
-import javax.swing.text.StyledDocument;
-import org.apache.tools.ant.module.api.AntProjectCookie;
-import org.apache.tools.ant.module.api.AntTargetExecutor;
-import org.apache.tools.ant.module.api.AntTargetExecutor.Env;
-import org.netbeans.api.queries.FileEncodingQuery;
+import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.api.project.FileOwnerQuery;
+import org.netbeans.api.project.Project;
+import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.ActionProvider;
-import org.openide.cookies.EditorCookie;
+import org.netbeans.spi.project.support.ant.PropertyEvaluator;
+import org.netbeans.spi.project.support.ant.PropertyProvider;
+import org.netbeans.spi.project.support.ant.PropertyUtils;
+import org.openide.execution.ExecutionEngine;
 import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.modules.Places;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
-import org.openide.util.Task;
-import org.openide.util.TaskListener;
+import org.openide.util.NbBundle.Messages;
 import org.openide.util.lookup.ServiceProvider;
+import org.openide.windows.IOProvider;
+import org.openide.windows.InputOutput;
 
 /**
  *
@@ -69,6 +81,8 @@ import org.openide.util.lookup.ServiceProvider;
 @ServiceProvider(service=ActionProvider.class)
 public class ActionProviderImpl implements ActionProvider {
 
+    static final String NB_JDK_PROJECT_BUILD = "nb-jdk-project-build";
+    
     private static final String[] ACTIONS = new String[] {
         COMMAND_DEBUG_TEST_SINGLE,
     };
@@ -88,47 +102,203 @@ public class ActionProviderImpl implements ActionProvider {
     }
 
     //public for test
+    @Messages({"# {0} - simple file name", "DN_Debugging=Debugging ({0})"})
     public static ExecutorTask createAndRunTestUnderDebugger(Lookup context) throws BadLocationException, IOException {
-        FileObject file = context.lookup(FileObject.class);
-        EditorCookie ec = file.getLookup().lookup(EditorCookie.class);
-        StyledDocument doc = ec.getDocument();
-        String content;
-
-        if (doc != null) {
-            content = doc.getText(0, doc.getLength()); //XXX: synchronization
-        } else {
-            content = file.asText(FileEncodingQuery.getEncoding(file).name());
-        }
-
-        String buildScript = new TagParser(file).translate(content);
-        File builds = Places.getCacheSubdirectory("jtreg-support");
-        File buildFile;
-
-        int i = 0;
-        while ((buildFile = new File(builds, "build" + (i > 0 ? i : "") + ".xml")).exists())
-            i++;
-
-        final FileObject tempBuildScript = FileUtil.createData(buildFile);
-
-        try (OutputStream out = tempBuildScript.getOutputStream()) {
-            out.write(buildScript.getBytes("UTF-8"));
-        }
-
-        AntProjectCookie apc = tempBuildScript.getLookup().lookup(AntProjectCookie.class);
-        ExecutorTask executor = AntTargetExecutor.createTargetExecutor(new Env()).execute(apc, new String[0]);
-
-        executor.addTaskListener(new TaskListener() {
+        final FileObject file = context.lookup(FileObject.class);
+        String ioName = Bundle.DN_Debugging(file.getName());
+        final InputOutput io = IOProvider.getDefault().getIO(ioName, false);
+        File jtregOutput = jtregOutputDir(file);
+        final File jtregWork = new File(jtregOutput, "work");
+        final File jtregReport = new File(jtregOutput, "report");
+        return ExecutionEngine.getDefault().execute(ioName, new Runnable() {
             @Override
-            public void taskFinished(Task task) {
+            public void run() {
                 try {
-                    tempBuildScript.delete();
+                    io.getOut().reset();
+                    io.getErr().reset();
+                } catch (IOException ex) {
+                    Exceptions.printStackTrace(ex);
+                }
+                Main.callBack = new ActionCallBack() {
+                    @Override
+                    public void actionStarted(Action action) {
+                    }
+                    @Override
+                    public Collection<? extends String> getAdditionalVMJavaOptions(Action action) {
+                        JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
+                        ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
+                        ClassPath extraSourcePath = allSources(file);
+                        s.setAdditionalSourcePath(ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath));
+                        try {
+                            Project prj = FileOwnerQuery.getOwner(file);
+                            String connectTo = s.execute(prj);
+                            return Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo);
+                        } catch (Throwable ex) {
+                            Exceptions.printStackTrace(ex);
+                            return Arrays.asList();
+                        }
+                    }
+                    @Override
+                    public void actionEnded(Action action) {
+                    }
+                };
+                List<String> options = new ArrayList<>();
+                options.add("-timeout:10");
+                options.add("-jdk:" + findTargetJavaHome(file).getAbsolutePath());
+                options.add("-retain:all");
+                options.add("-ignore:quiet");
+                options.add("-verbose:summary,nopass");
+                options.add("-w");
+                options.add(jtregWork.getAbsolutePath());
+                options.add("-r");
+                options.add(jtregReport.getAbsolutePath());
+                options.add("-xml:verify");
+                options.add("-Xbootclasspath/p:" + builtClassesDirs(file));
+                options.add(FileUtil.toFile(file).getAbsolutePath());
+                try {
+                    new Main().run(options.toArray(new String[options.size()]));
+                } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
+                    ex.printStackTrace(io.getErr());
+                }
+                io.getOut().close();
+                io.getErr().close();
+                try {
+                    io.getIn().close();
                 } catch (IOException ex) {
                     Exceptions.printStackTrace(ex);
                 }
             }
-        });
+        }, io);
+    }
 
-        return executor;
+    static ClassPath allSources(FileObject file) {
+        Project prj = FileOwnerQuery.getOwner(file);
+        FileObject jdkRoot;
+        List<String> sourceDirPaths;
+
+        if (prj.getProjectDirectory().getFileObject("../../../modules.xml") != null) {
+            jdkRoot = prj.getProjectDirectory().getFileObject("../../..");
+            sourceDirPaths = Arrays.asList("*", "src", "*", "*", "classes");
+        } else {
+            jdkRoot = prj.getProjectDirectory().getFileObject("../../..");
+            sourceDirPaths = Arrays.asList("src", "*", "*", "classes");
+        }
+
+        //find: */src/*/*/classes
+        List<FileObject> roots = new ArrayList<>();
+
+        listAllRoots(jdkRoot, new LinkedList<>(sourceDirPaths), roots);
+
+        return ClassPathSupport.createClassPath(roots.toArray(new FileObject[roots.size()]));
+    }
+
+    private static void listAllRoots(FileObject currentDir, List<String> remainders, List<FileObject> roots) {
+        if (remainders.isEmpty() && currentDir.isFolder()) {
+            roots.add(currentDir);
+            return ;
+        }
+
+        String current = remainders.remove(0);
+
+        if ("*".equals(current)) {
+            for (FileObject c : currentDir.getChildren()) {
+                listAllRoots(c, remainders, roots);
+            }
+        } else {
+            FileObject child = currentDir.getFileObject(current);
+
+            if (child != null) {
+                listAllRoots(child, remainders, roots);
+            }
+        }
+
+        remainders.add(0, current);
+    }
+
+    private static File getBuildTargetDir(FileObject testFile) {
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
+
+        Object buildAttr = possibleJDKRoot.getAttribute(NB_JDK_PROJECT_BUILD);
+
+        if (buildAttr instanceof File) {
+            return (File) buildAttr;
+        }
+
+        return null;
+    }
+
+    static File findTargetJavaHome(FileObject testFile) {
+        File buildDir = getBuildTargetDir(testFile);
+
+        if (buildDir != null) {
+            File candidate = new File(buildDir, "images/j2sdk-image");
+
+            if (candidate.isDirectory()) {
+                return candidate;
+            } else {
+                return new File(buildDir, "images/jdk");
+           }
+        }
+
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        File projectDirFile = FileUtil.toFile(prj.getProjectDirectory());
+        File userHome = new File(System.getProperty("user.home"));
+        List<PropertyProvider> properties = new ArrayList<>();
+
+        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(projectDirFile, "build.properties")));
+        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(userHome, ".openjdk/langtools-build.properties")));
+        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(userHome, ".openjdk/build.properties")));
+        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(projectDirFile, "make/build.properties")));
+
+        PropertyEvaluator evaluator = PropertyUtils.sequentialPropertyEvaluator(PropertyUtils.globalPropertyProvider(), properties.toArray(new PropertyProvider[0]));
+
+        return new File(evaluator.evaluate("${target.java.home}"));
+    }
+
+    static String builtClassesDirs(FileObject testFile) {
+        File buildDir = getBuildTargetDir(testFile);
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        List<FileObject> roots = new ArrayList<>();
+
+        if (buildDir != null) {
+            if (prj.getProjectDirectory().getParent().getParent().getNameExt().equals("langtools")) {
+                listAllRoots(prj.getProjectDirectory().getFileObject("../.."), new LinkedList<>(Arrays.asList("build", "classes")), roots);
+                listAllRoots(prj.getProjectDirectory().getFileObject("../.."), new LinkedList<>(Arrays.asList("build", "*", "classes")), roots);
+            } else {
+                listAllRoots(FileUtil.toFileObject(buildDir), new LinkedList<>(Arrays.asList("jdk", "modules", "*")), roots);
+            }
+        } else {
+            listAllRoots(prj.getProjectDirectory().getFileObject("../../.."), new LinkedList<>(Arrays.asList("build", "classes")), roots);
+            listAllRoots(prj.getProjectDirectory().getFileObject("../../.."), new LinkedList<>(Arrays.asList("build", "*", "classes")), roots);
+        }
+
+        StringBuilder built = new StringBuilder();
+        String sep = "";
+
+        for (FileObject fo : roots) {
+            built.append(sep);
+            built.append(FileUtil.toFile(fo).getAbsoluteFile());
+
+            sep = File.pathSeparator;
+        }
+
+        return built.toString();
+    }
+
+    static File jtregOutputDir(FileObject testFile) {
+        File buildDir = getBuildTargetDir(testFile);
+        Project prj = FileOwnerQuery.getOwner(testFile);
+
+        if (buildDir != null) {
+            if (prj.getProjectDirectory().getParent().getParent().getNameExt().equals("langtools")) {
+                buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../build");
+            }
+        } else {
+            buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../../build");
+        }
+
+        return new File(buildDir, "nb-jtreg").toPath().normalize().toFile();
     }
 
     @Override

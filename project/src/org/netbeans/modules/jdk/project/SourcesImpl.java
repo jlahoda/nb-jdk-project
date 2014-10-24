@@ -146,6 +146,7 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
         added.removeAll(seen);
         for (File a : added) {
             FileUtil.addFileChangeListener(this, a);
+            FileOwnerQuery.markExternalOwner(Utilities.toURI(a), null, FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
             FileOwnerQuery.markExternalOwner(Utilities.toURI(a), project, FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
         }
         Set<File> removed = new HashSet<>(seen);
