@@ -191,6 +191,11 @@ public class ActionProviderImplTest extends NbTestCase {
         OpenProjects.getDefault().close(new Project[] {langtoolsProject});
     }
 
+    @Override
+    protected int timeOut() {
+        return 60 * 60 * 1000;
+    }
+
     static boolean outcome;
     static CountDownLatch finished;
 
