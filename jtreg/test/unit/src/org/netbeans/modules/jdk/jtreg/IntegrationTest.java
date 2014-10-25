@@ -49,9 +49,6 @@ import java.util.logging.Level;
 import javax.swing.Action;
 import javax.tools.Diagnostic;
 import junit.framework.Test;
-import org.apache.tools.ant.module.spi.AntEvent;
-import org.apache.tools.ant.module.spi.AntLogger;
-import org.apache.tools.ant.module.spi.AntSession;
 import org.netbeans.api.java.source.CompilationController;
 import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.java.source.JavaSource.Phase;
@@ -62,11 +59,11 @@ import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.junit.NbModuleSuite;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.spi.project.ActionProgress;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.ContextAwareAction;
 import org.openide.util.lookup.Lookups;
-import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
@@ -129,11 +126,19 @@ public class IntegrationTest extends NbTestCase {
 
         assertNotNull(genericAction);
 
-        Action action = genericAction.createContextAwareInstance(Lookups.fixed(testFile));
+        finished = new CountDownLatch(1);
+
+        Action action = genericAction.createContextAwareInstance(Lookups.fixed(testFile, new ActionProgress() {
+            @Override
+            protected void started() {}
+            @Override
+            public void finished(boolean success) {
+                outcome = success;
+                finished.countDown();
+            }
+        }));
 
         assertTrue(action.isEnabled());
-
-        finished = new CountDownLatch(1);
 
         action.actionPerformed(null);
 
@@ -146,47 +151,6 @@ public class IntegrationTest extends NbTestCase {
 
     static boolean outcome;
     static CountDownLatch finished;
-
-    @ServiceProvider(service=AntLogger.class, position=10)
-    public static class TestAntLogger extends AntLogger {
-
-        @Override
-        public void buildFinished(AntEvent event) {
-            outcome = event.getException() == null;
-            finished.countDown();
-        }
-
-        @Override
-        public boolean interestedInSession(AntSession session) {
-            return true;
-        }
-
-        @Override
-        public String[] interestedInTargets(AntSession session) {
-            return ALL_TARGETS;
-        }
-
-        @Override
-        public String[] interestedInTasks(AntSession session) {
-            return ALL_TASKS;
-        }
-
-        @Override
-        public boolean interestedInAllScripts(AntSession session) {
-            return true;
-        }
-
-        @Override
-        public boolean interestedInScript(File script, AntSession session) {
-            return true;
-        }
-
-        @Override
-        public int[] interestedInLogLevels(AntSession session) {
-            return new int[] {AntEvent.LOG_INFO};
-        }
-
-    }
 
     private static final String LANGTOOLS_TEST_PATH = "langtools/test/tools/javac/4241573/T4241573.java";
 }

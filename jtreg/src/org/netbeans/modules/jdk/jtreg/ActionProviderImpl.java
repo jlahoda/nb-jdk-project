@@ -59,6 +59,7 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
 import org.netbeans.spi.project.support.ant.PropertyEvaluator;
 import org.netbeans.spi.project.support.ant.PropertyProvider;
@@ -110,62 +111,68 @@ public class ActionProviderImpl implements ActionProvider {
         File jtregOutput = jtregOutputDir(file);
         final File jtregWork = new File(jtregOutput, "work");
         final File jtregReport = new File(jtregOutput, "report");
+        final ActionProgress progress = ActionProgress.start(context);
         return ExecutionEngine.getDefault().execute(ioName, new Runnable() {
             @Override
             public void run() {
+                boolean success = false;
                 try {
-                    io.getOut().reset();
-                    io.getErr().reset();
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
-                }
-                Main.callBack = new ActionCallBack() {
-                    @Override
-                    public void actionStarted(Action action) {
+                    try {
+                        io.getOut().reset();
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
                     }
-                    @Override
-                    public Collection<? extends String> getAdditionalVMJavaOptions(Action action) {
-                        JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
-                        ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
-                        ClassPath extraSourcePath = allSources(file);
-                        s.setAdditionalSourcePath(ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath));
-                        try {
-                            Project prj = FileOwnerQuery.getOwner(file);
-                            String connectTo = s.execute(prj);
-                            return Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo);
-                        } catch (Throwable ex) {
-                            Exceptions.printStackTrace(ex);
-                            return Arrays.asList();
+                    Main.callBack = new ActionCallBack() {
+                        @Override
+                        public void actionStarted(Action action) {
                         }
+                        @Override
+                        public Collection<? extends String> getAdditionalVMJavaOptions(Action action) {
+                            JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
+                            ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
+                            ClassPath extraSourcePath = allSources(file);
+                            s.setAdditionalSourcePath(ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath));
+                            try {
+                                Project prj = FileOwnerQuery.getOwner(file);
+                                String connectTo = s.execute(prj);
+                                return Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo);
+                            } catch (Throwable ex) {
+                                Exceptions.printStackTrace(ex);
+                                return Arrays.asList();
+                            }
+                        }
+                        @Override
+                        public void actionEnded(Action action) {
+                        }
+                    };
+                    List<String> options = new ArrayList<>();
+                    options.add("-timeout:10");
+                    options.add("-jdk:" + findTargetJavaHome(file).getAbsolutePath());
+                    options.add("-retain:all");
+                    options.add("-ignore:quiet");
+                    options.add("-verbose:summary,nopass");
+                    options.add("-w");
+                    options.add(jtregWork.getAbsolutePath());
+                    options.add("-r");
+                    options.add(jtregReport.getAbsolutePath());
+                    options.add("-xml:verify");
+                    options.add("-Xbootclasspath/p:" + builtClassesDirs(file));
+                    options.add(FileUtil.toFile(file).getAbsolutePath());
+                    try {
+                        new Main().run(options.toArray(new String[options.size()]));
+                        success = true;
+                    } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
+                        ex.printStackTrace(io.getErr());
                     }
-                    @Override
-                    public void actionEnded(Action action) {
+                    io.getOut().close();
+                    io.getErr().close();
+                    try {
+                        io.getIn().close();
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
                     }
-                };
-                List<String> options = new ArrayList<>();
-                options.add("-timeout:10");
-                options.add("-jdk:" + findTargetJavaHome(file).getAbsolutePath());
-                options.add("-retain:all");
-                options.add("-ignore:quiet");
-                options.add("-verbose:summary,nopass");
-                options.add("-w");
-                options.add(jtregWork.getAbsolutePath());
-                options.add("-r");
-                options.add(jtregReport.getAbsolutePath());
-                options.add("-xml:verify");
-                options.add("-Xbootclasspath/p:" + builtClassesDirs(file));
-                options.add(FileUtil.toFile(file).getAbsolutePath());
-                try {
-                    new Main().run(options.toArray(new String[options.size()]));
-                } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
-                    ex.printStackTrace(io.getErr());
-                }
-                io.getOut().close();
-                io.getErr().close();
-                try {
-                    io.getIn().close();
-                } catch (IOException ex) {
-                    Exceptions.printStackTrace(ex);
+                } finally {
+                    progress.finished(success);
                 }
             }
         }, io);
