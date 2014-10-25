@@ -1,0 +1,168 @@
+diff -r 5be369356d9f make/build.xml
+--- a/make/build.xml	Fri Oct 24 11:57:32 2014 -0700
++++ b/make/build.xml	Sat Oct 25 12:51:00 2014 +0200
+@@ -195,7 +195,7 @@
+             debug="true" debuglevel="source,lines"
+             srcdir="${src.classes.dir}"
+             destdir="${build.classes.dir}"
+-            classpath="${build.classes.dir}:${javatest.jar}:${junit.jar}:${testng.jar}"
++            classpath="${build.classes.dir}:${javatest.jar}:${jh.jar}:${junit.jar}:${testng.jar}"
+             includeantruntime="true">
+             <compilerarg line="-Xlint:all"/>
+             <patternset refid="jtreg.packages"/>
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/Action.java
+--- a/src/share/classes/com/sun/javatest/regtest/Action.java	Fri Oct 24 11:57:32 2014 -0700
++++ b/src/share/classes/com/sun/javatest/regtest/Action.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -283,6 +283,12 @@
+      * </pre>
+      */
+     protected void startAction() {
++        ActionCallBack callBack = script.getCallBack();
++
++        if (callBack != null) {
++            callBack.actionStarted(this);
++        }
++
+         String name = getName();
+         section = script.getTestResult().createSection(name);
+ 
+@@ -307,6 +313,12 @@
+         pw.println(LOG_ELAPSED_TIME + ((double) elapsedTime/1000.0));
+         recorder.close();
+         section.setStatus(status);
++
++        ActionCallBack callBack = script.getCallBack();
++
++        if (callBack != null) {
++            callBack.actionEnded(this);
++        }
+     } // endAction()
+ 
+     //----------workarounds-------------------------------------------------------
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
+--- /dev/null	Thu Jan 01 00:00:00 1970 +0000
++++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -0,0 +1,38 @@
++/*
++ * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
++ * DO NOT ALTER OR REMOVE COPYRIGHT NOTICES OR THIS FILE HEADER.
++ *
++ * This code is free software; you can redistribute it and/or modify it
++ * under the terms of the GNU General Public License version 2 only, as
++ * published by the Free Software Foundation.  Oracle designates this
++ * particular file as subject to the "Classpath" exception as provided
++ * by Oracle in the LICENSE file that accompanied this code.
++ *
++ * This code is distributed in the hope that it will be useful, but WITHOUT
++ * ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or
++ * FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License
++ * version 2 for more details (a copy is included in the LICENSE file that
++ * accompanied this code).
++ *
++ * You should have received a copy of the GNU General Public License version
++ * 2 along with this work; if not, write to the Free Software Foundation,
++ * Inc., 51 Franklin St, Fifth Floor, Boston, MA 02110-1301 USA.
++ *
++ * Please contact Oracle, 500 Oracle Parkway, Redwood Shores, CA 94065 USA
++ * or visit www.oracle.com if you need additional information or have any
++ * questions.
++ */
++
++package com.sun.javatest.regtest;
++
++import java.util.Collection;
++
++public interface ActionCallBack {
++
++    public void actionStarted(Action action);
++
++    public Collection<? extends String> getAdditionalVMJavaOptions(Action action);
++
++    public void actionEnded(Action action);
++
++}
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/CompileAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Fri Oct 24 11:57:32 2014 -0700
++++ b/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -319,6 +319,12 @@
+         List<String> javacVMOpts = new ArrayList<String>();
+         javacVMOpts.addAll(script.getTestVMOptions());
+ 
++        ActionCallBack callBack = script.getCallBack();
++
++        if (callBack != null) {
++            javacVMOpts.addAll(callBack.getAdditionalVMJavaOptions(this));
++        }
++
+         List<String> javacArgs = new ArrayList<String>();
+         javacArgs.addAll(script.getTestCompilerOptions());
+ 
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/Main.java
+--- a/src/share/classes/com/sun/javatest/regtest/Main.java	Fri Oct 24 11:57:32 2014 -0700
++++ b/src/share/classes/com/sun/javatest/regtest/Main.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -1029,6 +1029,8 @@
+         return run();
+     }
+ 
++    public static ActionCallBack callBack;
++
+     private int run() throws BadArgs, Fault, Harness.Fault, InterruptedException {
+         findSystemJarFiles();
+ 
+@@ -1935,6 +1937,8 @@
+             if (nativeDirArg != null)
+                 rp.setNativeDir(nativeDirArg);
+ 
++            rp.setCallBack(callBack);
++
+             return rp;
+         } catch (TestSuite.Fault f) {
+             // TODO: fix bad string -- need more helpful resource here
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/MainAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/MainAction.java	Fri Oct 24 11:57:32 2014 -0700
++++ b/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -380,6 +380,12 @@
+ 
+         javaOpts.addAll(script.getTestVMJavaOptions());
+ 
++        ActionCallBack callBack = script.getCallBack();
++
++        if (callBack != null) {
++            javaOpts.addAll(callBack.getAdditionalVMJavaOptions(this));
++        }
++
+         Map<String, String> javaProps = new LinkedHashMap<String, String>();
+         javaProps.putAll(script.getTestProperties());
+ 
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/RegressionParameters.java
+--- a/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Fri Oct 24 11:57:32 2014 -0700
++++ b/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -881,4 +881,14 @@
+     private static final I18NResourceBundle i18n =
+             I18NResourceBundle.getBundleForClass(RegressionParameters.class);
+ 
++    private ActionCallBack callBack;
++
++    public ActionCallBack getCallBack() {
++        return callBack;
++    }
++
++    public void setCallBack(ActionCallBack callBack) {
++        this.callBack = callBack;
++    }
++
+ }
+diff -r 5be369356d9f src/share/classes/com/sun/javatest/regtest/RegressionScript.java
+--- a/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Fri Oct 24 11:57:32 2014 -0700
++++ b/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sat Oct 25 12:51:00 2014 +0200
+@@ -711,6 +711,10 @@
+         return params.getCompileJDK().getJavacProg().getPath();
+     }
+ 
++    ActionCallBack getCallBack() {
++        return params.getCallBack();
++    }
++
+     //--------------------------------------------------------------------------
+ 
+     // Get the standard properties to be set for tests
