@@ -52,13 +52,17 @@ import java.util.Set;
 import org.apache.tools.ant.module.api.support.ActionUtils;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
+import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
+import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.modules.InstalledFileLocator;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.Pair;
+import org.openide.util.Task;
+import org.openide.util.TaskListener;
 
 /**
  *
@@ -175,11 +179,19 @@ public class ActionProviderImpl implements ActionProvider {
             props.put(singleFileProperty.propertyName, value.toString());
             props.put("srcdir", srcdir);
         }
+        final ActionProgress progress = ActionProgress.start(context);
         try {
-            ActionUtils.runTarget(script, command2Targets.get(Pair.of(command, kind)), props);
+            ActionUtils.runTarget(script, command2Targets.get(Pair.of(command, kind)), props)
+                       .addTaskListener(new TaskListener() {
+                @Override
+                public void taskFinished(Task task) {
+                    progress.finished(((ExecutorTask) task).result() == 0);
+                }
+            });
         } catch (IOException ex) {
             //???
             Exceptions.printStackTrace(ex);
+            progress.finished(false);
         }
     }
 

@@ -50,21 +50,18 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 import java.util.prefs.Preferences;
 import junit.framework.Test;
-import org.apache.tools.ant.module.spi.AntEvent;
-import org.apache.tools.ant.module.spi.AntLogger;
-import org.apache.tools.ant.module.spi.AntSession;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.junit.NbModuleSuite;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
 import org.openide.util.NbPreferences;
 import org.openide.util.lookup.Lookups;
-import org.openide.util.lookup.ServiceProvider;
 
 /**
  *
@@ -167,26 +164,38 @@ public class ActionProviderImplTest extends NbTestCase {
         //scan does not need to be finished:
 //        SourceUtils.waitScanFinished();
 
-        List<FileObject> files = new ArrayList<>();
+        final boolean[] outcome = new boolean[1];
+        final CountDownLatch finished = new CountDownLatch(1);
+
+        List<Object> lookupContent = new ArrayList<>();
         for (String path : forFiles) {
             FileObject file = repoPathFile.getFileObject(path);
             assertNotNull(file);
-            files.add(file);
+            lookupContent.add(file);
         }
-        Lookup testLookup = Lookups.fixed(files.toArray());
+
+        lookupContent.add(new ActionProgress() {
+            @Override
+            protected void started() {}
+            @Override
+            public void finished(boolean success) {
+                outcome[0] = success;
+                finished.countDown();
+            }
+        });
+
+        Lookup testLookup = Lookups.fixed(lookupContent.toArray());
         ActionProvider ap = langtoolsProject.getLookup().lookup(ActionProvider.class);
 
         assertNotNull(ap);
         assertTrue("action supported: " + command, Arrays.asList(ap.getSupportedActions()).contains(command));
         assertTrue(ap.isActionEnabled(command, testLookup));
 
-        finished = new CountDownLatch(1);
-        
         ap.invokeAction(command, testLookup);
 
         assertTrue(finished.await(60, TimeUnit.MINUTES));
         
-        assertTrue(outcome);
+        assertTrue(outcome[0]);
 
         OpenProjects.getDefault().close(new Project[] {langtoolsProject});
     }
@@ -194,60 +203,6 @@ public class ActionProviderImplTest extends NbTestCase {
     @Override
     protected int timeOut() {
         return 60 * 60 * 1000;
-    }
-
-    static boolean outcome;
-    static CountDownLatch finished;
-
-    @ServiceProvider(service=AntLogger.class, position=10)
-    public static class TestAntLogger extends AntLogger {
-
-        @Override
-        public void buildFinished(AntEvent event) {
-            outcome = event.getException() == null;
-            finished.countDown();
-        }
-
-        @Override
-        public void targetStarted(AntEvent event) {
-            System.out.println(event.getTargetName() + ":");
-        }
-
-        @Override
-        public void messageLogged(AntEvent event) {
-            System.out.println(event.getMessage());
-        }
-
-        @Override
-        public boolean interestedInSession(AntSession session) {
-            return true;
-        }
-
-        @Override
-        public String[] interestedInTargets(AntSession session) {
-            return ALL_TARGETS;
-        }
-
-        @Override
-        public String[] interestedInTasks(AntSession session) {
-            return ALL_TASKS;
-        }
-
-        @Override
-        public boolean interestedInAllScripts(AntSession session) {
-            return true;
-        }
-
-        @Override
-        public boolean interestedInScript(File script, AntSession session) {
-            return true;
-        }
-
-        @Override
-        public int[] interestedInLogLevels(AntSession session) {
-            return new int[] {AntEvent.LOG_INFO};
-        }
-
     }
 
 }
