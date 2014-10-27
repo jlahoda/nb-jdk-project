@@ -47,6 +47,7 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
@@ -84,32 +85,43 @@ public class ActionProviderImplTest extends NbTestCase {
 
     private void doTestModulatizedFullJDK(String langtoolsClassesDir) throws Exception {
         createFile("modules.xml");
-        createDir("jdk/src/java.base/share/classes");
+        FileObject javaBaseSource = createDir("jdk/src/java.base/share/classes");
+        FileObject javaBaseTestFile = createFile("jdk/test/Test.java");
         createDir("jdk/src/java.base/linux/classes");
         createDir("jdk/src/java.desktop/share/classes");
         createDir("build/conf/jdk/modules/java.base");
         createDir("build/conf/jdk/modules/java.desktop");
         FileObject javaCompilerSource = createDir("langtools/src/java.compiler/share/classes");
         createDir(langtoolsClassesDir);
-        FileObject testFile = createFile("langtools/test/Test.java");
+        FileObject langtoolsTestFile = createFile("langtools/test/Test.java");
 
         createDir("").setAttribute(ActionProviderImpl.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
         
-        FileOwnerQuery.markExternalOwner(testFile.getParent(), FileOwnerQuery.getOwner(javaCompilerSource), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
+        FileOwnerQuery.markExternalOwner(javaBaseTestFile.getParent(), FileOwnerQuery.getOwner(javaBaseSource), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
+        FileOwnerQuery.markExternalOwner(langtoolsTestFile.getParent(), FileOwnerQuery.getOwner(javaCompilerSource), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
 
-        ClassPath allSources = ActionProviderImpl.allSources(testFile);
-
-        assertEquals(new HashSet<>(Arrays.asList("langtools/src/java.compiler/share/classes",
-                                                 "jdk/src/java.base/linux/classes",
-                                                 "jdk/src/java.base/share/classes",
-                                                 "jdk/src/java.desktop/share/classes")),
-                     relative(FileUtil.toFileObject(getWorkDir()), Arrays.asList(allSources.getRoots())));
+        Set<String> expectedAllSources = new HashSet<>(Arrays.asList("langtools/src/java.compiler/share/classes",
+                                                                     "jdk/src/java.base/linux/classes",
+                                                                     "jdk/src/java.base/share/classes",
+                                                                     "jdk/src/java.desktop/share/classes"));
+        assertEquals(expectedAllSources,
+                     relative(FileUtil.toFileObject(getWorkDir()),
+                              Arrays.asList(ActionProviderImpl.allSources(javaBaseTestFile).getRoots())));
+        assertEquals(expectedAllSources,
+                     relative(FileUtil.toFileObject(getWorkDir()),
+                              Arrays.asList(ActionProviderImpl.allSources(langtoolsTestFile).getRoots())));
         
-        String builtClassesDirs = ActionProviderImpl.builtClassesDirs(testFile);
-        builtClassesDirs = builtClassesDirs.replace(getWorkDir().getAbsolutePath(), "");
-        assertEquals("/" + langtoolsClassesDir, builtClassesDirs);
+        String builtClassesJDKDirs = ActionProviderImpl.builtClassesDirs(javaBaseTestFile);
+        builtClassesJDKDirs = builtClassesJDKDirs.replace(getWorkDir().getAbsolutePath(), "");
+        assertEquals(new HashSet<>(Arrays.asList("/build/conf/jdk/modules/java.desktop",
+                                                 "/build/conf/jdk/modules/java.base")),
+                     new HashSet<>(Arrays.asList(builtClassesJDKDirs.split(Pattern.quote(File.pathSeparator)))));
 
-        String jtregOutputDirs = ActionProviderImpl.jtregOutputDir(testFile).getAbsolutePath();
+        String builtClassesLangtoolsDirs = ActionProviderImpl.builtClassesDirs(langtoolsTestFile);
+        builtClassesLangtoolsDirs = builtClassesLangtoolsDirs.replace(getWorkDir().getAbsolutePath(), "");
+        assertEquals("/" + langtoolsClassesDir, builtClassesLangtoolsDirs);
+
+        String jtregOutputDirs = ActionProviderImpl.jtregOutputDir(langtoolsTestFile).getAbsolutePath();
         jtregOutputDirs = jtregOutputDirs.replace(getWorkDir().getAbsolutePath(), "");
         assertEquals("/langtools/build/nb-jtreg", jtregOutputDirs);
     }

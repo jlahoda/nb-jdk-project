@@ -316,7 +316,7 @@ public class ActionProviderImpl implements ActionProvider {
             return false;
         
         while (!file.isRoot()) {
-            if (Utilities.isLangtoolsRepository(file))
+            if (Utilities.isJDKRepository(file))
                 return true;
             file = file.getParent();
         }
