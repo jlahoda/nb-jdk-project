@@ -161,6 +161,7 @@ public class ActionProviderImpl implements ActionProvider {
                     try {
                         new Main().run(options.toArray(new String[options.size()]));
                         success = true;
+                        printJTR(io, jtregWork, file);
                     } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
                         ex.printStackTrace(io.getErr());
                     }
@@ -306,6 +307,25 @@ public class ActionProviderImpl implements ActionProvider {
         }
 
         return new File(buildDir, "nb-jtreg").toPath().normalize().toFile();
+    }
+
+    static void printJTR(InputOutput io, File jtregWork, FileObject testFile) {
+        try {
+            FileObject testRoot = testFile;
+            while (testRoot != null && testRoot.getFileObject("TEST.ROOT") == null)
+                testRoot = testRoot.getParent();
+            if (testRoot != null) {
+                String relPath = FileUtil.getRelativePath(testRoot, testFile);
+                relPath = relPath.replaceAll(".java$", ".jtr");
+                File jtr = new File(jtregWork, relPath);
+                if (jtr.canRead()) {
+                    FileUtil.refreshFor(jtr);
+                    io.getOut().write(FileUtil.toFileObject(jtr).asText());
+                }
+            }
+        } catch (IOException ex) {
+            Exceptions.printStackTrace(ex);
+        }
     }
 
     @Override
