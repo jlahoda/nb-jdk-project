@@ -52,6 +52,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
 import javax.swing.text.BadLocationException;
@@ -85,6 +86,7 @@ public class ActionProviderImpl implements ActionProvider {
     static final String NB_JDK_PROJECT_BUILD = "nb-jdk-project-build";
     
     private static final String[] ACTIONS = new String[] {
+        COMMAND_TEST_SINGLE,
         COMMAND_DEBUG_TEST_SINGLE,
     };
 
@@ -96,17 +98,20 @@ public class ActionProviderImpl implements ActionProvider {
     @Override
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
         try {
-            createAndRunTestUnderDebugger(context);
+            createAndRunTest(context, COMMAND_DEBUG_TEST_SINGLE.equals(command));
         } catch (BadLocationException | IOException ex) {
             throw new IllegalStateException(ex);
         }
     }
 
     //public for test
-    @Messages({"# {0} - simple file name", "DN_Debugging=Debugging ({0})"})
-    public static ExecutorTask createAndRunTestUnderDebugger(Lookup context) throws BadLocationException, IOException {
+    @Messages({"# {0} - simple file name",
+               "DN_Debugging=Debugging ({0})",
+               "# {0} - simple file name",
+               "DN_Running=Running ({0})"})
+    public static ExecutorTask createAndRunTest(Lookup context, final boolean debug) throws BadLocationException, IOException {
         final FileObject file = context.lookup(FileObject.class);
-        String ioName = Bundle.DN_Debugging(file.getName());
+        String ioName = debug ? Bundle.DN_Debugging(file.getName()) : Bundle.DN_Running(file.getName());
         final InputOutput io = IOProvider.getDefault().getIO(ioName, false);
         File jtregOutput = jtregOutputDir(file);
         final File jtregWork = new File(jtregOutput, "work");
@@ -128,6 +133,8 @@ public class ActionProviderImpl implements ActionProvider {
                         }
                         @Override
                         public Collection<? extends String> getAdditionalVMJavaOptions(Action action) {
+                            if (!debug) return Collections.emptyList();
+
                             JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
                             ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
                             ClassPath extraSourcePath = allSources(file);
