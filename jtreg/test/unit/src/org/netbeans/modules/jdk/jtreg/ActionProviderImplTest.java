@@ -43,6 +43,7 @@ package org.netbeans.modules.jdk.jtreg;
 
 import java.io.File;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
@@ -52,11 +53,13 @@ import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.junit.NbTestCase;
+import org.netbeans.modules.jdk.jtreg.ActionProviderImpl.StackTraceLine;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.util.Lookup;
+import org.openide.util.Pair;
 import org.openide.util.lookup.ServiceProvider;
 
 /**
@@ -186,6 +189,25 @@ public class ActionProviderImplTest extends NbTestCase {
         File target = ActionProviderImpl.findTargetJavaHome(testFile);
 
         assertEquals("/build/conf/images/jdk", target.getAbsolutePath().substring(getWorkDir().getAbsolutePath().length()));
+    }
+
+    public void testStackTracePattern() {
+        List<Pair<String, StackTraceLine>> cases = new ArrayList<>();
+        cases.add(Pair.of("	at com.sun.tools.javac.code.Scope$ScopeImpl.remove(Scope.java:406)",
+                          new StackTraceLine("com/sun/tools/javac/code/Scope.java", 406)));
+        cases.add(Pair.of("	at com.sun.tools.javac.code.Scope$ScopeImpl.<init>(Scope.java:402)",
+                          new StackTraceLine("com/sun/tools/javac/code/Scope.java", 402)));
+
+        for (Pair<String, StackTraceLine> c : cases) {
+            StackTraceLine parsed = ActionProviderImpl.matches(c.first());
+
+            assertFalse(String.valueOf(parsed), parsed == null ^ c.second() == null);
+
+            if (parsed != null) {
+                assertEquals(c.second().expectedFileName, parsed.expectedFileName);
+                assertEquals(c.second().lineNumber, parsed.lineNumber);
+            }
+        }
     }
 
     private FileObject createDir(String dir) throws IOException {

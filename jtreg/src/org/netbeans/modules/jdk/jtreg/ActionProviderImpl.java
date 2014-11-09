@@ -55,6 +55,10 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import javax.swing.text.BadLocationException;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
@@ -65,16 +69,25 @@ import org.netbeans.spi.project.ActionProvider;
 import org.netbeans.spi.project.support.ant.PropertyEvaluator;
 import org.netbeans.spi.project.support.ant.PropertyProvider;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
+import org.openide.cookies.LineCookie;
+import org.openide.cookies.OpenCookie;
 import org.openide.execution.ExecutionEngine;
 import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.text.Line;
+import org.openide.text.Line.Set;
+import org.openide.text.Line.ShowOpenType;
+import org.openide.text.Line.ShowVisibilityType;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
+import org.openide.util.Mutex;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.lookup.ServiceProvider;
 import org.openide.windows.IOProvider;
 import org.openide.windows.InputOutput;
+import org.openide.windows.OutputEvent;
+import org.openide.windows.OutputListener;
 
 /**
  *
@@ -122,6 +135,9 @@ public class ActionProviderImpl implements ActionProvider {
             public void run() {
                 boolean success = false;
                 try {
+                    ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
+                    ClassPath extraSourcePath = allSources(file);
+                    final ClassPath fullSourcePath = ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath);
                     try {
                         io.getOut().reset();
                     } catch (IOException ex) {
@@ -136,9 +152,7 @@ public class ActionProviderImpl implements ActionProvider {
                             if (!debug) return Collections.emptyList();
 
                             JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
-                            ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
-                            ClassPath extraSourcePath = allSources(file);
-                            s.setAdditionalSourcePath(ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath));
+                            s.setAdditionalSourcePath(fullSourcePath);
                             try {
                                 Project prj = FileOwnerQuery.getOwner(file);
                                 String connectTo = s.execute(prj);
@@ -168,7 +182,7 @@ public class ActionProviderImpl implements ActionProvider {
                     try {
                         new Main().run(options.toArray(new String[options.size()]));
                         success = true;
-                        printJTR(io, jtregWork, file);
+                        printJTR(io, jtregWork, fullSourcePath, file);
                     } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
                         ex.printStackTrace(io.getErr());
                     }
@@ -316,7 +330,7 @@ public class ActionProviderImpl implements ActionProvider {
         return new File(buildDir, "nb-jtreg").toPath().normalize().toFile();
     }
 
-    static void printJTR(InputOutput io, File jtregWork, FileObject testFile) {
+    static void printJTR(InputOutput io, File jtregWork, ClassPath fullSourcePath, FileObject testFile) {
         try {
             FileObject testRoot = testFile;
             while (testRoot != null && testRoot.getFileObject("TEST.ROOT") == null)
@@ -327,11 +341,81 @@ public class ActionProviderImpl implements ActionProvider {
                 File jtr = new File(jtregWork, relPath);
                 if (jtr.canRead()) {
                     FileUtil.refreshFor(jtr);
-                    io.getOut().write(FileUtil.toFileObject(jtr).asText());
+                    for (String line : FileUtil.toFileObject(jtr).asLines()) {
+                        final StackTraceLine stl = matches(line);
+                        if (stl != null) {
+                            final FileObject source = fullSourcePath.findResource(stl.expectedFileName);
+                            if (source != null) {
+                                io.getOut().println(line, new OutputListener() {
+                                    @Override
+                                    public void outputLineSelected(OutputEvent ev) {}
+                                    @Override
+                                    public void outputLineAction(OutputEvent ev) {
+                                        Mutex.EVENT.readAccess(new Runnable() {
+                                            @Override public void run() {
+                                                open(source, stl.lineNumber - 1);
+                                            }
+                                        });
+                                    }
+                                    @Override
+                                    public void outputLineCleared(OutputEvent ev) {}
+                                });
+                            }
+                        } else {
+                            io.getOut().println(line);
+                        }
+                    }
                 }
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
+        }
+    }
+
+    private static void open(FileObject file, int line) {
+        LineCookie lc = file.getLookup().lookup(LineCookie.class);
+
+        if (lc != null) {
+            Set ls = lc.getLineSet();
+            try {
+                Line originalLine = ls.getOriginal(line);
+                originalLine.show(ShowOpenType.OPEN, ShowVisibilityType.FOCUS);
+            } catch (IndexOutOfBoundsException ex) {
+                Logger.getLogger(ActionProviderImpl.class.getName()).log(Level.FINE, null, ex);
+            }
+        }
+
+        OpenCookie oc = file.getLookup().lookup(OpenCookie.class);
+
+        if (oc != null) {
+            oc.open();
+        }
+    }
+
+    private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("\\s*at\\s*(\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*(\\.<init>|\\.<clinit>)?)\\s*\\([^:)]*(:([0-9]+))?\\)");
+
+    static StackTraceLine matches(String line) {
+        Matcher m = STACK_TRACE_PATTERN.matcher(line);
+        if (m.matches()) {
+            String className = m.group(1);
+            className = className.substring(0, className.lastIndexOf('.'));
+            int dollar = className.lastIndexOf('$');
+            if (dollar != (-1))
+                className = className.substring(0, dollar);
+            className = className.replace('.', '/') + ".java";
+            String lineNumber = m.group(5);
+            return new StackTraceLine(className, lineNumber != null ? Integer.parseInt(lineNumber) : -1);
+        } else {
+            return null;
+        }
+    }
+
+    static final class StackTraceLine {
+        public final String expectedFileName;
+        public final int lineNumber;
+        public StackTraceLine(String expectedFileName, int lineNumber) {
+            this.expectedFileName = expectedFileName;
+            this.lineNumber = lineNumber;
         }
     }
 
