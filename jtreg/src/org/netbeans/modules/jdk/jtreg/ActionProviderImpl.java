@@ -53,8 +53,11 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Set;
+import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
@@ -76,13 +79,13 @@ import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.text.Line;
-import org.openide.text.Line.Set;
 import org.openide.text.Line.ShowOpenType;
 import org.openide.text.Line.ShowVisibilityType;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
 import org.openide.util.Mutex;
 import org.openide.util.NbBundle.Messages;
+import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 import org.openide.windows.IOProvider;
 import org.openide.windows.InputOutput;
@@ -117,6 +120,8 @@ public class ActionProviderImpl implements ActionProvider {
         }
     }
 
+    private static final String COMMAND_BUILD_FAST = "build-fast";
+
     //public for test
     @Messages({"# {0} - simple file name",
                "DN_Debugging=Debugging ({0})",
@@ -135,14 +140,64 @@ public class ActionProviderImpl implements ActionProvider {
             public void run() {
                 boolean success = false;
                 try {
-                    ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
-                    ClassPath extraSourcePath = allSources(file);
-                    final ClassPath fullSourcePath = ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath);
                     try {
                         io.getOut().reset();
                     } catch (IOException ex) {
                         Exceptions.printStackTrace(ex);
                     }
+                    Project prj = FileOwnerQuery.getOwner(file);
+                    ActionProvider prjAP = prj != null ? prj.getLookup().lookup(ActionProvider.class) : null;
+                    if (prjAP != null) {
+                        Lookup targetContext = Lookup.EMPTY;
+                        Set<String> supported = new HashSet<>(Arrays.asList(prjAP.getSupportedActions()));
+                        String toRun = null;
+                        
+                        for (String command : new String[] {COMMAND_BUILD_FAST, ActionProvider.COMMAND_BUILD}) {
+                            if (supported.contains(command) && prjAP.isActionEnabled(command, targetContext)) {
+                                toRun = command;
+                                break;
+                            }
+                        }
+
+                        if (toRun != null) {
+                            final CountDownLatch wait = new CountDownLatch(1);
+                            final boolean[] state = new boolean[1];
+                            targetContext = Lookups.singleton(new ActionProgress() {
+                                @Override
+                                protected void started() {
+                                    state[0] = true;
+                                }
+                                @Override
+                                public void finished(boolean success) {
+                                    state[0] = success;
+                                    wait.countDown();
+                                }
+                            });
+                            prjAP.invokeAction(toRun, targetContext);
+
+                            if (!state[0]) {
+                                io.getErr().println("Cannot build project!");
+                                return ;
+                            }
+
+                            try {
+                                wait.await();
+                            } catch (InterruptedException ex) {
+                                Exceptions.printStackTrace(ex);
+                                return ;
+                            }
+
+                            if (!state[0]) {
+                                io.getErr().println("Cannot build project!");
+                                return ;
+                            }
+
+                            io.select();
+                        }
+                    }
+                    ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
+                    ClassPath extraSourcePath = allSources(file);
+                    final ClassPath fullSourcePath = ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath);
                     Main.callBack = new ActionCallBack() {
                         @Override
                         public void actionStarted(Action action) {
@@ -186,6 +241,7 @@ public class ActionProviderImpl implements ActionProvider {
                     } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
                         ex.printStackTrace(io.getErr());
                     }
+                } finally {
                     io.getOut().close();
                     io.getErr().close();
                     try {
@@ -193,7 +249,6 @@ public class ActionProviderImpl implements ActionProvider {
                     } catch (IOException ex) {
                         Exceptions.printStackTrace(ex);
                     }
-                } finally {
                     progress.finished(success);
                 }
             }
@@ -376,7 +431,7 @@ public class ActionProviderImpl implements ActionProvider {
         LineCookie lc = file.getLookup().lookup(LineCookie.class);
 
         if (lc != null) {
-            Set ls = lc.getLineSet();
+            Line.Set ls = lc.getLineSet();
             try {
                 Line originalLine = ls.getOriginal(line);
                 originalLine.show(ShowOpenType.OPEN, ShowVisibilityType.FOCUS);

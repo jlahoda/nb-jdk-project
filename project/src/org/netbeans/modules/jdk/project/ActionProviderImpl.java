@@ -70,9 +70,12 @@ import org.openide.util.TaskListener;
  */
 public class ActionProviderImpl implements ActionProvider {
 
+    private static final String COMMAND_BUILD_FAST = "build-fast";
     private static final Map<Pair<String, RootKind>, String[]> command2Targets = new HashMap<Pair<String, RootKind>, String[]>() {{
         put(Pair.of(COMMAND_BUILD, RootKind.SOURCE), new String[] {"build"});
         put(Pair.of(COMMAND_BUILD, RootKind.TEST), new String[] {"build"});
+        put(Pair.of(COMMAND_BUILD_FAST, RootKind.SOURCE), new String[] {"build-fast"});
+        put(Pair.of(COMMAND_BUILD_FAST, RootKind.TEST), new String[] {"build-fast"});
         put(Pair.of(COMMAND_CLEAN, RootKind.SOURCE), new String[] {"clean"});
         put(Pair.of(COMMAND_CLEAN, RootKind.TEST), new String[] {"clean"});
         put(Pair.of(COMMAND_REBUILD, RootKind.SOURCE), new String[] {"clean", "build"});

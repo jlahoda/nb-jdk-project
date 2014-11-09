@@ -41,12 +41,18 @@
  Portions Copyrighted 2014 Sun Microsystems, Inc.
 -->
 <!--
-SUPPORTED_ACTIONS: build,clean,rebuild
+SUPPORTED_ACTIONS: build,build-fast,clean,rebuild
 -->
 <project name="jdk-project-build-langtools">
     <target name="build">
         <exec executable="make" dir="${basedir}" failonerror="true">
             <arg value="images" />
+            <env key="CONF" value="${CONF}" />
+        </exec>
+    </target>
+    <target name="build-fast">
+        <exec executable="make" dir="${basedir}" failonerror="true">
+            <arg value="default" />
             <env key="CONF" value="${CONF}" />
         </exec>
     </target>
