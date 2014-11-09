@@ -425,18 +425,19 @@ public class JDKProject implements Project {
 
     @Messages({
         "DN_Project=J2SE - {0}",
-        "DN_Module=Module - {0}"
+        "DN_Module=Module - {0} - {1}"
     })
     private final class ProjectInformationImpl implements ProjectInformation {
 
         @Override
         public String getName() {
-            return "j2se";
+            return currentModule != null ? getProjectDirectory().getNameExt()
+                                         : "j2se";
         }
 
         @Override
         public String getDisplayName() {
-            return currentModule != null ? Bundle.DN_Module(getProjectDirectory().getNameExt())
+            return currentModule != null ? Bundle.DN_Module(getProjectDirectory().getNameExt(), getProjectDirectory().getFileObject("../../..").getNameExt())
                                          : Bundle.DN_Project(getProjectDirectory().getParent().getNameExt());
         }
 
