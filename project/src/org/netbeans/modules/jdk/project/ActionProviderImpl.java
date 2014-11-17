@@ -160,6 +160,7 @@ public class ActionProviderImpl implements ActionProvider {
         RunSingleConfig singleFileProperty = command2Properties.get(Pair.of(command, kind));
         if (singleFileProperty != null) {
             String srcdir = "";
+            String moduleName = "";
             StringBuilder value = new StringBuilder();
             String sep = "";
             for (FileObject file : context.lookupAll(FileObject.class)) {
@@ -177,10 +178,13 @@ public class ActionProviderImpl implements ActionProvider {
                 }
                 value.append(singleFileProperty.valueType.convert(sourceCP, file));
                 sep = singleFileProperty.separator;
-                srcdir = FileUtil.getRelativePath(project.getProjectDirectory().getFileObject("../.."), sourceCP.findOwnerRoot(file));
+                FileObject ownerRoot = sourceCP.findOwnerRoot(file);
+                srcdir = FileUtil.getRelativePath(project.getProjectDirectory().getFileObject("../.."), ownerRoot);
+                moduleName = ownerRoot.getParent().getParent().getNameExt();
             }
             props.put(singleFileProperty.propertyName, value.toString());
             props.put("srcdir", srcdir);
+            props.put("module.name", moduleName);
         }
         final ActionProgress progress = ActionProgress.start(context);
         try {
