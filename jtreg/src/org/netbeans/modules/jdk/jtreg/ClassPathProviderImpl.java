@@ -49,7 +49,9 @@ import java.lang.reflect.Field;
 import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URL;
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Properties;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -106,7 +108,15 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                         if (javac) {
                             try {
                                 ClassPath langtoolsBCP = ClassPath.getClassPath(Utilities.getLangtoolsKeyRoot(search.getParent()), ClassPath.BOOT);
-                                return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(search.getParent().toURI().resolve("build/classes/").toURL()), langtoolsBCP);
+                                List<URL> roots = new ArrayList<>();
+                                for (String rootPaths : new String[] {"build/classes/",
+                                                                      "build/java.compiler/classes/",
+                                                                      "build/jdk.compiler/classes/",
+                                                                      "build/jdk.javadoc/classes/",
+                                                                      "build/jdk.dev/classes/"}) {
+                                    roots.add(search.getParent().toURI().resolve(rootPaths).toURL());
+                                }
+                                return ClassPathSupport.createProxyClassPath(ClassPathSupport.createClassPath(roots.toArray(new URL[roots.size()])), langtoolsBCP);
                             } catch (MalformedURLException ex) {
                                 Exceptions.printStackTrace(ex);
                             }
