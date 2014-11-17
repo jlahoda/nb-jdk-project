@@ -118,7 +118,7 @@ public class IntegrationTest extends NbTestCase {
                 for (Diagnostic d : parameter.getDiagnostics()) {
                     hasError |= d.getKind() == Diagnostic.Kind.ERROR;
                 }
-                assertFalse(hasError);
+                assertFalse(parameter.getDiagnostics().toString(), hasError);
             }
         }, true);
 
@@ -142,7 +142,7 @@ public class IntegrationTest extends NbTestCase {
 
         action.actionPerformed(null);
 
-        assertTrue(finished.await(1, TimeUnit.MINUTES));
+        assertTrue(finished.await(10, TimeUnit.MINUTES));
         
         assertTrue(outcome);
 
