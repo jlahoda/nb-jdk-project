@@ -103,7 +103,8 @@ public class ActionProviderImplTest extends NbTestCase {
         doRunAction(repoPathFile,
                     "langtools/src/java.compiler",
                     ActionProvider.COMMAND_BUILD);
-        assertNotNull(repoPathFile.getFileObject("langtools/build/classes")); //TODO: more precise path
+        assertTrue(repoPathFile.getFileObject("langtools/build/classes") != null ||
+                   repoPathFile.getFileObject("langtools/build/jdk.compiler/classes") != null); //TODO: more precise path
         //TODO: verify disabled:
 //        doRunAction(repoPathFile,
 //                    "langtools/src/java.compiler",
