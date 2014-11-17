@@ -5,4 +5,14 @@
 <project name="nb-jdk-project" basedir=".">
     <description>Builds the module suite nb-jdk-project.</description>
     <import file="nbproject/build-impl.xml"/>
+    <!--so that order can be forced (see nbproject/project.properties):-->
+    <target name="test" depends="build" description="Runs tests for all modules in the suite.">
+        <property name="continue.after.failing.tests" value="true"/> <!-- fallback -->
+        <echo>${modules.test.sorted}</echo>
+        <subant target="test" buildpath="${modules.test.sorted}" inheritrefs="false" inheritall="false">
+            <property name="cluster.path.evaluated" value="${cluster.path.evaluated}"/> <!-- Just for speed of pre-7.0 projects -->
+            <property name="harness.taskdefs.done" value="${harness.taskdefs.done}"/> <!-- optimization -->
+            <property name="continue.after.failing.tests" value="${continue.after.failing.tests}"/>
+        </subant>
+    </target>
 </project>
