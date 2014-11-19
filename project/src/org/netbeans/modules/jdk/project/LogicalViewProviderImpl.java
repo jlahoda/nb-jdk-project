@@ -42,6 +42,7 @@
 package org.netbeans.modules.jdk.project;
 
 import java.util.List;
+import javax.swing.Action;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.java.project.JavaProjectConstants;
@@ -51,6 +52,7 @@ import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
 import org.netbeans.spi.java.project.support.ui.PackageView;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
+import org.netbeans.spi.project.ui.support.CommonProjectActions;
 import org.openide.nodes.AbstractNode;
 import org.openide.nodes.ChildFactory;
 import org.openide.nodes.Children;
@@ -99,6 +101,12 @@ public class LogicalViewProviderImpl implements LogicalViewProvider  {
         public String getHtmlDisplayName() {
             return null;
         }
+
+        @Override
+        public Action[] getActions(boolean context) {
+            return CommonProjectActions.forType(JDKProject.PROJECT_KEY);
+        }
+
     }
 
     private static final class RootChildFactory extends ChildFactory<Object> implements ChangeListener {

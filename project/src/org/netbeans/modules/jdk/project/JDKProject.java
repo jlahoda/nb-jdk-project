@@ -88,6 +88,7 @@ import org.openide.util.lookup.ServiceProvider;
  */
 public class JDKProject implements Project {
 
+    public static final String PROJECT_KEY = "org-netbeans-modules-jdk-project-JDKProject";
     private final FileObject projectDir;
     private final Lookup lookup;
     private final List<Root> roots;
@@ -332,7 +333,8 @@ public class JDKProject implements Project {
                                                   "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
                           Pair.<String, String>of("${basedir}/${os}/classes/", null),
                           Pair.<String, String>of("${basedir}/${generalized-os}/classes/", null),
-                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null)),
+                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null),
+                          Pair.<String, String>of("${outputRoot}/support/gensrc/${module}/", null)),
             Arrays.<Pair<String, String>>asList()
     );
 
@@ -343,7 +345,8 @@ public class JDKProject implements Project {
                           Pair.<String, String>of("${basedir}/closed/share/classes/", null),
                           Pair.<String, String>of("${basedir}/closed/${os}/classes/", null),
                           Pair.<String, String>of("{basedir}/closed/${generalized-os}/classes/", null),
-                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null)),
+                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null),
+                          Pair.<String, String>of("${outputRoot}/support/gensrc/${module}/", null)),
             Arrays.<Pair<String, String>>asList()
     );
 
