@@ -46,6 +46,7 @@ import java.io.File;
 import java.net.URISyntaxException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -92,18 +93,17 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
     }
 
     private boolean initialized;
-    private SourceGroup[] genericSourceGroup;
+    private final List<SourceGroup> genericSourceGroups = new ArrayList<>();
     
     @Override
     public synchronized SourceGroup[] getSourceGroups(String type) {
         if (!initialized) {
-            this.genericSourceGroup = GenericSources.genericOnly(project).getSourceGroups(TYPE_GENERIC);
             recompute();
             initialized = true;
         }
         
         if (TYPE_GENERIC.equals(type)) {
-            return genericSourceGroup;
+            return genericSourceGroups.toArray(new SourceGroup[0]);
         }
         if (JavaProjectConstants.SOURCES_TYPE_JAVA.equals(type)) {
             List<SourceGroup> sourceGroups = new ArrayList<SourceGroup>();
@@ -123,6 +123,8 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
     private final Set<File> seen = new HashSet<>();
     
     private synchronized void recompute() {
+        genericSourceGroups.clear();
+        genericSourceGroups.addAll(Arrays.asList(GenericSources.genericOnly(project).getSourceGroups(TYPE_GENERIC)));
         Set<File> newFiles = new HashSet<>();
         for (Root root : project.getRoots()) {
             URL srcURL = root.getLocation();
@@ -138,8 +140,13 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
             FileObject src = URLMapper.findFileObject(srcURL);
             if (src == null) {
                 root2SourceGroup.remove(root);
-            } else if (!root2SourceGroup.containsKey(root)) {
-                root2SourceGroup.put(root, new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes));
+            } else {
+                if (!root2SourceGroup.containsKey(root)) {
+                    root2SourceGroup.put(root, new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes));
+                }
+                if (!FileUtil.isParentOf(project.getProjectDirectory(), src)) {
+                    genericSourceGroups.add(GenericSources.group(project, src, root.displayName, root.displayName, null, null));
+                }
             }
         }
         Set<File> added = new HashSet<>(newFiles);
