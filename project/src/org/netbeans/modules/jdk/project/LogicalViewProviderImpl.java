@@ -45,7 +45,9 @@ import java.util.List;
 import javax.swing.Action;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.project.JavaProjectConstants;
+import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.api.project.SourceGroup;
@@ -53,6 +55,8 @@ import org.netbeans.api.project.Sources;
 import org.netbeans.spi.java.project.support.ui.PackageView;
 import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.netbeans.spi.project.ui.support.CommonProjectActions;
+import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.nodes.AbstractNode;
 import org.openide.nodes.ChildFactory;
 import org.openide.nodes.Children;
@@ -77,11 +81,49 @@ public class LogicalViewProviderImpl implements LogicalViewProvider  {
         return new RootNode(p);
     }
 
+    //from java.api.common's LogicalViewProviders:
     @Override
     public Node findPath(Node root, Object target) {
-        return null; //XXX
+        Project prj = root.getLookup().lookup(Project.class);
+        if (prj == null) {
+            return null;
+        }
+
+        if (target instanceof FileObject) {
+            FileObject fo = (FileObject) target;
+            if (isOtherProjectSource(fo, prj)) {
+                return null; // Don't waste time if project does not own the fo among sources
+            }
+
+            for (Node n : root.getChildren().getNodes(true)) {
+                Node result = PackageView.findPath(n, target);
+                if (result != null) {
+                    return result;
+                }
+            }
+        }
+
+        return null;
     }
-    
+
+    private static boolean isOtherProjectSource(
+            @NonNull final FileObject fo,
+            @NonNull final Project me) {
+        final Project owner = FileOwnerQuery.getOwner(fo);
+        if (owner == null) {
+            return false;
+        }
+        if (me.equals(owner)) {
+            return false;
+        }
+        for (SourceGroup sg : ProjectUtils.getSources(owner).getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA)) {
+            if (FileUtil.isParentOf(sg.getRootFolder(), fo)) {
+                return true;
+            }
+        }
+        return false;
+    }
+
     private static final class RootNode extends AbstractNode {
 
         private final Project project;
