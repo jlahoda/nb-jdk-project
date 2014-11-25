@@ -186,6 +186,10 @@ public class JDKProject implements Project {
                     //TODO: langtools tests
                     addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/langtools/test/", null)));
                     break;
+                case "java.xml":
+                    //TODO: jaxp tests
+                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jaxp/test/", null)));
+                    break;
                 case "jdk.compiler":
                     addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/src/jdk.compiler/share/classes/", null)));
                     break;
