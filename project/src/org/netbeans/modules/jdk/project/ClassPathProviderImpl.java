@@ -204,13 +204,16 @@ public class ClassPathProviderImpl implements ClassPathProvider {
     public ClassPath getSourceCP() {
         return sourceCP;
     }
-    
+
+    private static final boolean REGISTER_TESTS_AS_JAVA = Boolean.getBoolean("jdk.project.ClassPathProviderImpl");
     private static final String TEST_SOURCE = "jdk-project-test-source";
 
     public void registerClassPaths() {
         GlobalPathRegistry.getDefault().register(ClassPath.BOOT, new ClassPath[] {bootCP});
         GlobalPathRegistry.getDefault().register(ClassPath.COMPILE, new ClassPath[] {compileCP});
         GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+        if (REGISTER_TESTS_AS_JAVA)
+            GlobalPathRegistry.getDefault().register(ClassPath.SOURCE, new ClassPath[] {testsRegCP});
         GlobalPathRegistry.getDefault().register(TEST_SOURCE, new ClassPath[] {testsRegCP});
     }
     
@@ -218,6 +221,8 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         GlobalPathRegistry.getDefault().unregister(ClassPath.BOOT, new ClassPath[] {bootCP});
         GlobalPathRegistry.getDefault().unregister(ClassPath.COMPILE, new ClassPath[] {compileCP});
         GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {sourceCP});
+        if (REGISTER_TESTS_AS_JAVA)
+            GlobalPathRegistry.getDefault().unregister(ClassPath.SOURCE, new ClassPath[] {testsRegCP});
         GlobalPathRegistry.getDefault().unregister(TEST_SOURCE, new ClassPath[] {testsRegCP});
     }
 
