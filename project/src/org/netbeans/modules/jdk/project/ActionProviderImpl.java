@@ -49,17 +49,20 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import javax.swing.Action;
 import org.apache.tools.ant.module.api.support.ActionUtils;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
+import org.netbeans.spi.project.ui.support.ProjectSensitiveActions;
 import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.modules.InstalledFileLocator;
 import org.openide.util.Exceptions;
 import org.openide.util.Lookup;
+import org.openide.util.NbBundle.Messages;
 import org.openide.util.Pair;
 import org.openide.util.Task;
 import org.openide.util.TaskListener;
@@ -71,6 +74,8 @@ import org.openide.util.TaskListener;
 public class ActionProviderImpl implements ActionProvider {
 
     private static final String COMMAND_BUILD_FAST = "build-fast";
+    private static final String COMMAND_SELECT_TOOL = "select.tool";
+    
     private static final Map<Pair<String, RootKind>, String[]> command2Targets = new HashMap<Pair<String, RootKind>, String[]>() {{
         put(Pair.of(COMMAND_BUILD, RootKind.SOURCE), new String[] {"build"});
         put(Pair.of(COMMAND_BUILD, RootKind.TEST), new String[] {"build"});
@@ -82,16 +87,20 @@ public class ActionProviderImpl implements ActionProvider {
         put(Pair.of(COMMAND_REBUILD, RootKind.TEST), new String[] {"clean", "build"});
         put(Pair.of(COMMAND_COMPILE_SINGLE, RootKind.SOURCE), new String[] {"compile-single"});
         put(Pair.of(COMMAND_COMPILE_SINGLE, RootKind.TEST), new String[] {"compile-single"});
-//    COMMAND_RUN;
+        put(Pair.of(COMMAND_RUN, RootKind.SOURCE), new String[] {"run"});
+        put(Pair.of(COMMAND_RUN, RootKind.TEST), new String[] {"run"});
         put(Pair.of(COMMAND_RUN_SINGLE, RootKind.SOURCE), new String[] {"run-single"});
         put(Pair.of(COMMAND_RUN_SINGLE, RootKind.TEST), new String[] {"jtreg"});
 //    COMMAND_TEST;
 //    COMMAND_TEST_SINGLE;
-//    COMMAND_DEBUG;
+        put(Pair.of(COMMAND_DEBUG, RootKind.SOURCE), new String[] {"debug"});
+        put(Pair.of(COMMAND_DEBUG, RootKind.TEST), new String[] {"debug"});
         put(Pair.of(COMMAND_DEBUG_SINGLE, RootKind.SOURCE), new String[] {"debug-single"});
         put(Pair.of(COMMAND_DEBUG_SINGLE, RootKind.TEST), new String[] {"debug-jtreg"});
 //    COMMAND_DEBUG_TEST_SINGLE;
 //    COMMAND_DEBUG_STEP_INTO;
+        put(Pair.of(COMMAND_SELECT_TOOL, RootKind.SOURCE), new String[] {"select-tool"});
+        put(Pair.of(COMMAND_SELECT_TOOL, RootKind.TEST), new String[] {"select-tool"});
     }};
 
     private static final Map<Pair<String, RootKind>, RunSingleConfig> command2Properties = new HashMap<Pair<String, RootKind>, RunSingleConfig>() {{
@@ -256,4 +265,9 @@ public class ActionProviderImpl implements ActionProvider {
         TEST;
     }
 
+    //for layer:
+    @Messages("DN_SelectTool=Select Tool (langtools only)")
+    public static Action selectToolAction() {
+        return ProjectSensitiveActions.projectCommandAction(COMMAND_SELECT_TOOL, Bundle.DN_SelectTool(), null);
+    }
 }

@@ -41,7 +41,7 @@
  Portions Copyrighted 2014 Sun Microsystems, Inc.
 -->
 <!--
-SUPPORTED_ACTIONS: build,clean,rebuild,run.single,debug.single,compile.single
+SUPPORTED_ACTIONS: build,clean,rebuild,run.single,debug.single,compile.single,run,select.tool,debug
 -->
 <project name="jdk-project-build-langtools">
     <!-- XXX: should set target JDK to the current JDK - how about boot JDK -->
