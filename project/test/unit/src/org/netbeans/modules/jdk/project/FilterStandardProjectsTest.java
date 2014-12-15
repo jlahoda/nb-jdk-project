@@ -42,64 +42,61 @@
 package org.netbeans.modules.jdk.project;
 
 import java.io.IOException;
+import java.io.OutputStream;
 import org.netbeans.api.project.Project;
+import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ui.OpenProjects;
-import org.netbeans.spi.project.ProjectFactory;
-import org.netbeans.spi.project.ProjectState;
+import org.netbeans.junit.NbTestCase;
 import org.openide.filesystems.FileObject;
-import org.openide.util.lookup.ServiceProvider;
+import org.openide.filesystems.FileUtil;
 
 /**
  *
  * @author lahvac
  */
-@ServiceProvider(service=ProjectFactory.class, position=10)
-public class FilterStandardProjects implements ProjectFactory {
+public class FilterStandardProjectsTest extends NbTestCase {
 
-    private static final boolean BLOCK_LANGTOOLS_PROJECT = Boolean.getBoolean("nb.jdk.project.block.langtools");
-    
-    @Override
-    public boolean isProject(FileObject projectDirectory) {
-        FileObject jdkRoot;
-        return projectDirectory.getFileObject("nbproject/project.xml") != null &&
-               (jdkRoot = projectDirectory.getFileObject("../../..")) != null &&
-               (JDKProject.isJDKProject(jdkRoot) || jdkRoot.getFileObject("../modules.xml") != null) &&
-               projectDirectory.getParent().equals(jdkRoot.getFileObject("make/netbeans")) &&
-               "netbeans".equals(projectDirectory.getParent().getName());
+    public FilterStandardProjectsTest(String name) {
+        super(name);
     }
 
-    public static final String MSG_FILTER = "This project cannot be load while the NetBeans JDK project is open.";
-    
-    @Override
-    public Project loadProject(FileObject projectDirectory, ProjectState state) throws IOException {
-        if (!isProject(projectDirectory)) return null;
+    public void testProjectsFilteredModularized() throws IOException {
+        clearWorkDir();
 
-        FileObject repository;
-        String project2Repository;
+        FileObject workDir = FileUtil.toFileObject(getWorkDir());
 
-        if ("langtools".equals(projectDirectory.getNameExt())) {
-            if (!BLOCK_LANGTOOLS_PROJECT)
-                return null;
-            repository = projectDirectory.getFileObject("../../../../langtools");
-            project2Repository = "../..";
-        } else {
-            repository = projectDirectory.getFileObject("../../..");
-            project2Repository = "";
+        assertNotNull(workDir);
+
+        FileObject javaBase = FileUtil.createFolder(workDir, "langtools/src/java.compiler");
+        FileObject modulesXml = FileUtil.createData(workDir, "modules.xml");
+        try (OutputStream out = modulesXml.getOutputStream()) {
+            out.write(("<?xml version=\"1.0\" encoding=\"us-ascii\"?>\n" +
+                       "<modules>\n" +
+                       "  <module>\n" +
+                       "    <name>java.compiler</name>\n" +
+                       "  </module>\n" +
+                       "</modules>\n").getBytes("UTF-8"));
         }
-        
-        if (repository != null) {
-            for (Project prj : OpenProjects.getDefault().getOpenProjects()) {
-                if (repository.equals(prj.getProjectDirectory().getFileObject(project2Repository))) {
-                    throw new IOException(MSG_FILTER);
-                }
-            }
+        FileUtil.createFolder(workDir, "langtools/src/java.compiler/share/classes");
+        FileObject langtoolsPrj = FileUtil.createFolder(workDir, "langtools/make/netbeans/langtools");
+        FileUtil.createData(workDir, "langtools/make/netbeans/langtools/nbproject/project.xml");
+        Project javaBaseProject = ProjectManager.getDefault().findProject(javaBase);
+
+        assertNotNull(javaBaseProject);
+
+        OpenProjects.getDefault().open(new Project[] {javaBaseProject}, false);
+
+        try {
+            ProjectManager.getDefault().findProject(langtoolsPrj);
+        } catch (IOException ex) {
+            assertEquals(FilterStandardProjects.MSG_FILTER, ex.getMessage());
         }
 
-        return null;
+        OpenProjects.getDefault().close(new Project[] {javaBaseProject});
     }
 
-    @Override
-    public void saveProject(Project project) throws IOException, ClassCastException {
+    static {
+        System.setProperty("nb.jdk.project.block.langtools", "true");
+        System.setProperty("netbeans.dirs", System.getProperty("cluster.path.final"));
     }
-
 }
