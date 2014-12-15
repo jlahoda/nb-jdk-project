@@ -232,6 +232,7 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add("-r");
                     options.add(jtregReport.getAbsolutePath());
                     options.add("-xml:verify");
+                    options.add("-javacoptions:-g");
                     options.add("-Xbootclasspath/p:" + builtClassesDirs(file));
                     options.add(FileUtil.toFile(file).getAbsolutePath());
                     try {
