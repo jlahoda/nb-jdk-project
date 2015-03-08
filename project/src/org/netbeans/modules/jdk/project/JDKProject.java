@@ -157,7 +157,7 @@ public class JDKProject implements Project {
         
         boolean closed = projectDir.getFileObject("src/closed/share/classes/javax/swing/plaf/basic/icons/JavaCup16.png") != null;
         boolean modular = currentModule != null;
-        Configuration configuration =  modular ? closed ? MODULAR_CLOSED_CONFIGURATION : MODULAR_OPEN_CONFIGURATION
+        Configuration configuration =  modular ? MODULAR_CONFIGURATION
                                                : closed ? LEGACY_CLOSED_CONFIGURATION : LEGACY_OPEN_CONFIGURATION;
         
         this.roots = new ArrayList<>(configuration.mainSourceRoots.size());
@@ -275,8 +275,8 @@ public class JDKProject implements Project {
         public URL getLocation() {
             if (location == null) {
                 try {
-                    location = new URL(evaluator.evaluate(relPath));
-                } catch (MalformedURLException ex) {
+                    location = new URL(evaluator.evaluate(relPath)).toURI().normalize().toURL();
+                } catch (MalformedURLException | URISyntaxException ex) {
                     Exceptions.printStackTrace(ex); //XXX
                 }
             }
@@ -332,41 +332,30 @@ public class JDKProject implements Project {
             Arrays.asList(Pair.<String, String>of("${basedir}/test", null))
     );
 
-    private static final Configuration MODULAR_OPEN_CONFIGURATION = new Configuration(
-            Arrays.asList(Pair.<String, String>of("${basedir}/share/classes/",
-                                                  "com/sun/jmx/snmp/.*|com/sun/jmx/snmp|sun/management/snmp/.*|sun/management/snmp|sun/dc/.*|sun/dc"),
-                          Pair.<String, String>of("${basedir}/${os}/classes/", null),
-                          Pair.<String, String>of("${basedir}/${generalized-os}/classes/", null),
-                          Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null),
-                          Pair.<String, String>of("${outputRoot}/support/gensrc/${module}/", null)),
-            Arrays.<Pair<String, String>>asList()
-    );
-
-    private static final Configuration MODULAR_CLOSED_CONFIGURATION = new Configuration(
+    private static final Configuration MODULAR_CONFIGURATION = new Configuration(
             Arrays.asList(Pair.<String, String>of("${basedir}/share/classes/", null),
                           Pair.<String, String>of("${basedir}/${os}/classes/", null),
                           Pair.<String, String>of("${basedir}/${generalized-os}/classes/", null),
-                          Pair.<String, String>of("${basedir}/closed/share/classes/", null),
-                          Pair.<String, String>of("${basedir}/closed/${os}/classes/", null),
-                          Pair.<String, String>of("{basedir}/closed/${generalized-os}/classes/", null),
+                          Pair.<String, String>of("${basedir}/../closed/${module}/share/classes/", null),
+                          Pair.<String, String>of("${basedir}/../closed/${module}/${os}/classes/", null),
+                          Pair.<String, String>of("${basedir}/../closed/${module}/${generalized-os}/classes/", null),
                           Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null),
                           Pair.<String, String>of("${outputRoot}/support/gensrc/${module}/", null)),
             Arrays.<Pair<String, String>>asList()
     );
 
     static boolean isJDKProject(FileObject projectDirectory) {
-        if (projectDirectory.getFileObject("../../../modules.xml") != null) {
-            try {
-                FileObject jdkRoot = projectDirectory.getFileObject("../../..");
-                ModuleRepository repository = ModuleDescription.getModules(jdkRoot);
+        try {
+            ModuleRepository repository = ModuleDescription.getModules(projectDirectory);
 
-                return repository != null && repository.findModule(projectDirectory.getNameExt()) != null;
-            } catch (Exception ex) {
-                Logger.getLogger(JDKProject.class.getName()).log(Level.FINE, null, ex);
-                return false;
+            if (repository != null) {
+                return repository.findModule(projectDirectory.getNameExt()) != null;
+            } else {
+                return projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null;
             }
-        } else {
-            return projectDirectory.getFileObject("src/share/classes/java/lang/Object.java") != null;
+        } catch (Exception ex) {
+            Logger.getLogger(JDKProject.class.getName()).log(Level.FINE, null, ex);
+            return false;
         }
     }
 
@@ -397,8 +386,7 @@ public class JDKProject implements Project {
 
         private Project loadModularProject(FileObject projectDirectory) {
             try {
-                FileObject jdkRoot = projectDirectory.getFileObject("../../..");
-                ModuleRepository repository = ModuleDescription.getModules(jdkRoot);
+                ModuleRepository repository = ModuleDescription.getModules(projectDirectory);
                 
                 if (repository == null) {
                     return null;

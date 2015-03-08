@@ -41,6 +41,7 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -54,6 +55,7 @@ import org.w3c.dom.Element;
 import org.w3c.dom.Node;
 import org.w3c.dom.NodeList;
 import org.xml.sax.InputSource;
+import org.xml.sax.SAXException;
 
 /**
  *
@@ -78,7 +80,12 @@ public class ModuleDescription {
 
     private static final Map<FileObject, ModuleRepository> jdkRoot2Repository = new HashMap<>();
 
-    public static ModuleRepository getModules(FileObject jdkRoot) throws Exception {
+    public static ModuleRepository getModules(FileObject project) throws Exception {
+        FileObject jdkRoot = findJDKRoot(project);
+
+        if (jdkRoot == null)
+            return null;
+
         ModuleRepository repository = jdkRoot2Repository.get(jdkRoot);
 
         if (repository != null)
@@ -89,18 +96,36 @@ public class ModuleDescription {
         if (modulesXML == null)
             return null;
         
+        List<ModuleDescription> moduleDescriptions = new ArrayList<>();
+
+        readModulesXml(modulesXML, moduleDescriptions);
+        readModulesXml(jdkRoot.getFileObject("closed/modules.xml"), moduleDescriptions);
+
+        jdkRoot2Repository.put(jdkRoot, repository = new ModuleRepository(jdkRoot, moduleDescriptions));
+
+        return repository;
+    }
+
+    private static FileObject findJDKRoot(FileObject projectDirectory) {
+        if (projectDirectory.getFileObject("../../../modules.xml") != null)
+            return projectDirectory.getFileObject("../../..");
+        if (projectDirectory.getFileObject("../../../../modules.xml") != null)
+            return projectDirectory.getFileObject("../../../..");
+
+        return null;
+    }
+
+    private static void readModulesXml(FileObject modulesXML, List<ModuleDescription> moduleDescriptions) throws SAXException, IOException {
+        if (modulesXML == null)
+            return ;
+
         try (InputStream in = modulesXML.getInputStream()) {
             Document doc = XMLUtil.parse(new InputSource(in), false, true, null, null);
             NodeList modules = doc.getDocumentElement().getElementsByTagName("module");
-            List<ModuleDescription> result = new ArrayList<>();
 
             for (int i = 0; i < modules.getLength(); i++) {
-                result.add(parseModule((Element) modules.item(i)));
+                moduleDescriptions.add(parseModule((Element) modules.item(i)));
             }
-
-            jdkRoot2Repository.put(jdkRoot, repository = new ModuleRepository(jdkRoot, result));
-
-            return repository;
         }
     }
 
@@ -181,6 +206,9 @@ public class ModuleDescription {
                 if ("jdk.dev".equals(moduleName) && !repo.getName().equals("langtools"))
                     continue;
                 FileObject module = repo.getFileObject("src/" + moduleName);
+
+                if (module == null)
+                    module = repo.getFileObject("src/closed/" + moduleName);
 
                 if (module != null && module.isFolder())
                     return module;
