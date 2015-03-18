@@ -59,6 +59,10 @@
                 <binary-origin>release/modules/ext/javatest.jar</binary-origin>
             </class-path-extension>
             <class-path-extension>
+                <runtime-relative-path>ext/asmtools.jar</runtime-relative-path>
+                <binary-origin>release/modules/ext/asmtools.jar</binary-origin>
+            </class-path-extension>
+            <class-path-extension>
                 <runtime-relative-path>ext/jtreg.jar</runtime-relative-path>
                 <binary-origin>release/modules/ext/jtreg.jar</binary-origin>
             </class-path-extension>

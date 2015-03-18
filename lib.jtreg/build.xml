@@ -6,6 +6,13 @@
     <description>Builds, tests, and runs the project org.netbeans.modules.jdk.jtreg.lib.</description>
     <import file="nbproject/build-impl.xml"/>
     <target name="build-init" depends="harness.build-init,-download-javatest">
+        <ant dir="asmtools-src/build" inheritAll="false" useNativeBasedir="true">
+             <target name="clean" />
+             <target name="build" />
+             <property name="build.root" location="${build.dir}" />
+             <property name="buildprod.root" location="${build.dir}" />
+        </ant>
+        <copy file="${build.dir}/asmtools-6.0-build/binaries/lib/asmtools.jar" todir="release/modules/ext" />
         <ant dir="jtreg-src/make" inheritAll="false" useNativeBasedir="true">
              <target name="clean" />
              <target name="build" />
@@ -15,7 +22,7 @@
              <property name="testng.jar" location="${nbplatform.active.dir}/platform/modules/ext/testng-6.8.1-dist.jar" />
              <property name="junit.jar" location="${nbplatform.active.dir}/platform/modules/ext/junit-4.10.jar" />
              <property name="build.version" value="4.1" />
-             <property name="build.number" value="b10" />
+             <property name="build.number" value="b11" />
         </ant>
         <copy file="${basedir}/jtreg-src/dist/jtreg/lib/jtreg.jar" todir="release/modules/ext" />
     </target>
