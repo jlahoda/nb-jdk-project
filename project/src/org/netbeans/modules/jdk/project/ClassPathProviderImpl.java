@@ -162,9 +162,11 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                 LOG.log(Level.FINE, null, ex);
             }
         }
-        Library testng = LibraryManager.getDefault().getLibrary("testng");
-        if (testng != null) {
-            testCompileRoots.addAll(testng.getContent("classpath"));
+        for (String libraryName : TEST_LIBRARIES) {
+            Library library = LibraryManager.getDefault().getLibrary(libraryName);
+            if (library != null) {
+                testCompileRoots.addAll(library.getContent("classpath"));
+            }
         }
         if (fakeJdkURL != null) {
             testCompileRoots.add(fakeJdkURL);
@@ -172,6 +174,8 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         testsCompileCP = ClassPathSupport.createClassPath(testCompileRoots.toArray(new URL[0]));
         testsRegCP = ClassPathSupport.createClassPath(testsRegRoots);
     }
+
+    private static final String[] TEST_LIBRARIES = new String[] {"testng", "junit_4"};
 
     private static URL projectDir2FakeTarget(FileObject projectDir) throws MalformedURLException {
         return FileUtil.getArchiveRoot(projectDir.toURI().resolve("fake-target.jar").toURL());
