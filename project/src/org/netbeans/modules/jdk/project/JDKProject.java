@@ -131,7 +131,7 @@ public class JDKProject implements Project {
             case "macosx": generalizedOsKey = "unix"; legacyOsKey = "macosx"; break;
             case "solaris": generalizedOsKey = "unix"; legacyOsKey = "solaris"; break;
             case "linux": generalizedOsKey = "unix"; legacyOsKey = "solaris"; break;
-            case "window": generalizedOsKey = "<none>"; legacyOsKey = "windows"; break;
+            case "windows": generalizedOsKey = "no-such-key"; legacyOsKey = "windows"; break;
             default:
                 throw new IllegalStateException(osKey);
         }
