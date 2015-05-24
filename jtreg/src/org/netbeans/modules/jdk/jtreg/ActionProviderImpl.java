@@ -66,6 +66,7 @@ import javax.swing.text.BadLocationException;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
+import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
@@ -121,6 +122,7 @@ public class ActionProviderImpl implements ActionProvider {
     }
 
     private static final String COMMAND_BUILD_FAST = "build-fast";
+    private static final String COMMAND_BUILD_GENERIC_FAST = "build-generic-fast";
 
     //public for test
     @Messages({"# {0} - simple file name",
@@ -152,7 +154,7 @@ public class ActionProviderImpl implements ActionProvider {
                         Set<String> supported = new HashSet<>(Arrays.asList(prjAP.getSupportedActions()));
                         String toRun = null;
                         
-                        for (String command : new String[] {COMMAND_BUILD_FAST, ActionProvider.COMMAND_BUILD}) {
+                        for (String command : new String[] {idealBuildTarget(file), ActionProvider.COMMAND_BUILD}) {
                             if (supported.contains(command) && prjAP.isActionEnabled(command, targetContext)) {
                                 toRun = command;
                                 break;
@@ -347,7 +349,9 @@ public class ActionProviderImpl implements ActionProvider {
         List<FileObject> roots = new ArrayList<>();
 
         if (buildDir != null) {
-            if (prj.getProjectDirectory().getParent().getParent().getNameExt().equals("langtools")) {
+            FileObject repo = prj.getProjectDirectory().getParent().getParent();
+            if (repo.getNameExt().equals("langtools") &&
+                ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
                 listAllRoots(prj.getProjectDirectory().getFileObject("../.."), new LinkedList<>(Arrays.asList("build", "classes")), roots);
                 listAllRoots(prj.getProjectDirectory().getFileObject("../.."), new LinkedList<>(Arrays.asList("build", "*", "classes")), roots);
             } else {
@@ -376,7 +380,9 @@ public class ActionProviderImpl implements ActionProvider {
         Project prj = FileOwnerQuery.getOwner(testFile);
 
         if (buildDir != null) {
-            if (prj.getProjectDirectory().getParent().getParent().getNameExt().equals("langtools")) {
+            FileObject repo = prj.getProjectDirectory().getParent().getParent();
+            if (repo.getNameExt().equals("langtools") &&
+                ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
                 buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../build");
             }
         } else {
@@ -425,6 +431,16 @@ public class ActionProviderImpl implements ActionProvider {
             }
         } catch (IOException ex) {
             Exceptions.printStackTrace(ex);
+        }
+    }
+
+    static String idealBuildTarget(FileObject testFile) {
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        FileObject repo = prj.getProjectDirectory().getParent().getParent();
+        if (ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
+            return COMMAND_BUILD_FAST;
+        } else {
+            return COMMAND_BUILD_GENERIC_FAST;
         }
     }
 

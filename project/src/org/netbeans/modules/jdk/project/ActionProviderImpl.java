@@ -52,6 +52,7 @@ import java.util.Set;
 import javax.swing.Action;
 import org.apache.tools.ant.module.api.support.ActionUtils;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
@@ -74,6 +75,7 @@ import org.openide.util.TaskListener;
 public class ActionProviderImpl implements ActionProvider {
 
     private static final String COMMAND_BUILD_FAST = "build-fast";
+    private static final String COMMAND_BUILD_GENERIC_FAST = "build-generic-fast";
     private static final String COMMAND_SELECT_TOOL = "select.tool";
     
     private static final Map<Pair<String, RootKind>, String[]> command2Targets = new HashMap<Pair<String, RootKind>, String[]>() {{
@@ -115,6 +117,7 @@ public class ActionProviderImpl implements ActionProvider {
     private final JDKProject project;
     private final FileObject repository;
     private final FileObject script;
+    private final FileObject genericScript;
     private final String[] supportedActions;
 
     public ActionProviderImpl(JDKProject project) {
@@ -123,12 +126,14 @@ public class ActionProviderImpl implements ActionProvider {
         FileObject repo = project.currentModule != null ? project.getProjectDirectory().getParent().getParent()
                                                               : project.getProjectDirectory().getParent();
         File scriptFile = InstalledFileLocator.getDefault().locate("scripts/build-" + repo.getNameExt() + ".xml", "org.netbeans.modules.jdk.project", false);
-        if (scriptFile == null) {
-            scriptFile = InstalledFileLocator.getDefault().locate("scripts/build-generic.xml", "org.netbeans.modules.jdk.project", false);
+        File genericScriptFile = InstalledFileLocator.getDefault().locate("scripts/build-generic.xml", "org.netbeans.modules.jdk.project", false);
+        if (scriptFile == null || !ShortcutUtils.getDefault().shouldUseCustomBuild(repo.getNameExt(), FileUtil.getRelativePath(repo, project.getProjectDirectory()))) {
+            scriptFile = genericScriptFile;
             repo = repo.getParent();
         }
         repository = repo;
         script = FileUtil.toFileObject(scriptFile);
+        genericScript = FileUtil.toFileObject(genericScriptFile);
 
         String[] supported = new String[0];
 
@@ -143,6 +148,7 @@ public class ActionProviderImpl implements ActionProvider {
                     }
 
                     filteredActions.retainAll(Arrays.asList(actions));
+                    filteredActions.add(COMMAND_BUILD_GENERIC_FAST);
                     supported = filteredActions.toArray(new String[0]);
                     break;
                 }
@@ -162,8 +168,13 @@ public class ActionProviderImpl implements ActionProvider {
 
     @Override
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
+        FileObject scriptFO = script;
+        if (COMMAND_BUILD_GENERIC_FAST.equals(command)) {
+            scriptFO = genericScript;
+            command = COMMAND_BUILD_FAST; //XXX: should only do this if genericScript supports it
+        }
         Properties props = new Properties();
-        props.put("basedir", FileUtil.toFile(repository).getAbsolutePath());
+        props.put("basedir", FileUtil.toFile(repository.getParent()).getAbsolutePath());
         props.put("CONF", project.configurations.getActiveConfiguration().getLocation().getName());
         RootKind kind = getKind(context);
         RunSingleConfig singleFileProperty = command2Properties.get(Pair.of(command, kind));
@@ -197,7 +208,7 @@ public class ActionProviderImpl implements ActionProvider {
         }
         final ActionProgress progress = ActionProgress.start(context);
         try {
-            ActionUtils.runTarget(script, command2Targets.get(Pair.of(command, kind)), props)
+            ActionUtils.runTarget(scriptFO, command2Targets.get(Pair.of(command, kind)), props)
                        .addTaskListener(new TaskListener() {
                 @Override
                 public void taskFinished(Task task) {

@@ -61,9 +61,11 @@ import org.netbeans.api.java.source.JavaSource;
 import org.netbeans.api.project.libraries.Library;
 import org.netbeans.api.project.libraries.LibraryManager;
 import org.netbeans.api.queries.FileEncodingQuery;
+import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.netbeans.spi.java.classpath.ClassPathProvider;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 import org.openide.util.Exceptions;
 import org.openide.util.lookup.ServiceProvider;
 
@@ -85,7 +87,8 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             }
 
             if (search.getName().equals("test") && Utilities.isJDKRepository(search.getParent())) {
-                boolean javac = Utilities.isLangtoolsRepository(search.getParent());
+                boolean javac = Utilities.isLangtoolsRepository(search.getParent()) &&
+                                ShortcutUtils.getDefault().shouldUseCustomTest(search.getParent().getNameExt(), FileUtil.getRelativePath(search.getParent(), file));
                 //XXX: hack to make things work for langtools:
                 switch (type) {
                     case ClassPath.COMPILE:
