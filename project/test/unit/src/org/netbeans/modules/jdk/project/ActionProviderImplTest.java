@@ -91,6 +91,7 @@ public class ActionProviderImplTest extends NbTestCase {
         String modularizedJdk9Path = System.getProperty("modularizedJdk9Path");
         assertNotNull(modularizedJdk9Path);
         runLangtoolsTests(modularizedJdk9Path);
+        //TODO: test jdk.jshell
     }
 
     private void runLangtoolsTests(String repoPath) throws Exception {

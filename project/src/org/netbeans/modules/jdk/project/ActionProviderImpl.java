@@ -129,7 +129,6 @@ public class ActionProviderImpl implements ActionProvider {
         File genericScriptFile = InstalledFileLocator.getDefault().locate("scripts/build-generic.xml", "org.netbeans.modules.jdk.project", false);
         if (scriptFile == null || !ShortcutUtils.getDefault().shouldUseCustomBuild(repo.getNameExt(), FileUtil.getRelativePath(repo, project.getProjectDirectory()))) {
             scriptFile = genericScriptFile;
-            repo = repo.getParent();
         }
         repository = repo;
         script = FileUtil.toFileObject(scriptFile);
@@ -174,7 +173,7 @@ public class ActionProviderImpl implements ActionProvider {
             command = COMMAND_BUILD_FAST; //XXX: should only do this if genericScript supports it
         }
         Properties props = new Properties();
-        props.put("basedir", FileUtil.toFile(repository.getParent()).getAbsolutePath());
+        props.put("basedir", FileUtil.toFile(scriptFO == genericScript ? repository.getParent() : repository).getAbsolutePath());
         props.put("CONF", project.configurations.getActiveConfiguration().getLocation().getName());
         RootKind kind = getKind(context);
         RunSingleConfig singleFileProperty = command2Properties.get(Pair.of(command, kind));
