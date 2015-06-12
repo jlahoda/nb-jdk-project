@@ -13,6 +13,11 @@
              <property name="buildprod.root" location="${build.dir}" />
         </ant>
         <copy file="${build.dir}/asmtools-6.0-build/binaries/lib/asmtools.jar" todir="release/modules/ext" />
+        <path id="junit.path">
+            <fileset dir="${nbplatform.active.dir}/platform/modules/ext">
+                <include name="junit-4.*.jar"/>
+            </fileset>
+        </path>
         <ant dir="jtreg-src-${jtreg.changeset}/make" inheritAll="false" useNativeBasedir="true">
              <target name="clean" />
              <target name="build" />
@@ -20,7 +25,7 @@
              <property name="jhall.jar" location="${nbplatform.active.dir}/platform/modules/ext/jhall-2.0_05.jar" />
              <property name="javatest.jar" location="${basedir}/release/modules/ext/javatest.jar" />
              <property name="testng.jar" location="${nbplatform.active.dir}/platform/modules/ext/testng-6.8.1-dist.jar" />
-             <property name="junit.jar" location="${nbplatform.active.dir}/platform/modules/ext/junit-4.10.jar" />
+             <property name="junit.jar" refid="junit.path" />
              <property name="build.version" value="4.1" />
              <property name="build.number" value="b11" />
         </ant>
