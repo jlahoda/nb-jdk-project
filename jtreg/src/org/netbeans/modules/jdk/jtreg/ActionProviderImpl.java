@@ -235,7 +235,11 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add(jtregReport.getAbsolutePath());
                     options.add("-xml:verify");
                     options.add("-javacoptions:-g");
-                    options.add("-Xbootclasspath/p:" + builtClassesDirs(file));
+                    if (hasXOverride(file)) {
+                        options.add("-Xoverride:" + builtClassesDirsForXOverride(file));
+                    } else {
+                        options.add("-Xbootclasspath/p:" + builtClassesDirsForBootClassPath(file));
+                    }
                     options.add(FileUtil.toFile(file).getAbsolutePath());
                     try {
                         new Main().run(options.toArray(new String[options.size()]));
@@ -315,6 +319,13 @@ public class ActionProviderImpl implements ActionProvider {
         return null;
     }
 
+    private static boolean hasXOverride(FileObject testFile) {
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
+
+        return possibleJDKRoot.getFileObject("jdk/src/java.base/share/classes/module-info.java") != null;
+    }
+
     static File findTargetJavaHome(FileObject testFile) {
         File buildDir = getBuildTargetDir(testFile);
 
@@ -343,7 +354,7 @@ public class ActionProviderImpl implements ActionProvider {
         return new File(evaluator.evaluate("${target.java.home}"));
     }
 
-    static String builtClassesDirs(FileObject testFile) {
+    private static String builtClassesDirsForBootClassPath(FileObject testFile) {
         File buildDir = getBuildTargetDir(testFile);
         Project prj = FileOwnerQuery.getOwner(testFile);
         List<FileObject> roots = new ArrayList<>();
@@ -373,6 +384,23 @@ public class ActionProviderImpl implements ActionProvider {
         }
 
         return built.toString();
+    }
+
+    private static String builtClassesDirsForXOverride(FileObject testFile) {
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        FileObject buildClasses;
+
+        FileObject repo = prj.getProjectDirectory().getParent().getParent();
+        if (repo.getNameExt().equals("langtools") &&
+            ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
+            buildClasses = prj.getProjectDirectory().getFileObject("../../build/classes");
+        } else {
+            File buildDir = getBuildTargetDir(testFile);
+            FileObject buildDirFO = FileUtil.toFileObject(buildDir);
+            buildClasses = buildDirFO != null ? buildDirFO.getFileObject("jdk/modules") : null;
+        }
+
+        return buildClasses != null ? FileUtil.toFile(buildClasses).getAbsoluteFile().getAbsolutePath() : "";
     }
 
     static File jtregOutputDir(FileObject testFile) {
