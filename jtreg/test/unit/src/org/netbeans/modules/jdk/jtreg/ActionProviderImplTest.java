@@ -114,13 +114,13 @@ public class ActionProviderImplTest extends NbTestCase {
                      relative(FileUtil.toFileObject(getWorkDir()),
                               Arrays.asList(ActionProviderImpl.allSources(langtoolsTestFile).getRoots())));
         
-        String builtClassesJDKDirs = ActionProviderImpl.builtClassesDirs(javaBaseTestFile);
+        String builtClassesJDKDirs = ActionProviderImpl.builtClassesDirsForBootClassPath(javaBaseTestFile);
         builtClassesJDKDirs = builtClassesJDKDirs.replace(getWorkDir().getAbsolutePath(), "");
         assertEquals(new HashSet<>(Arrays.asList("/build/conf/jdk/modules/java.desktop",
                                                  "/build/conf/jdk/modules/java.base")),
                      new HashSet<>(Arrays.asList(builtClassesJDKDirs.split(Pattern.quote(File.pathSeparator)))));
 
-        String builtClassesLangtoolsDirs = ActionProviderImpl.builtClassesDirs(langtoolsTestFile);
+        String builtClassesLangtoolsDirs = ActionProviderImpl.builtClassesDirsForBootClassPath(langtoolsTestFile);
         builtClassesLangtoolsDirs = builtClassesLangtoolsDirs.replace(getWorkDir().getAbsolutePath(), "");
         assertEquals("/" + langtoolsClassesDir, builtClassesLangtoolsDirs);
 
@@ -150,7 +150,7 @@ public class ActionProviderImplTest extends NbTestCase {
         assertEquals(new HashSet<>(Arrays.asList("langtools/src/java.compiler/share/classes")),
                      relative(FileUtil.toFileObject(getWorkDir()), Arrays.asList(allSources.getRoots())));
 
-        String builtClassesDirs = ActionProviderImpl.builtClassesDirs(testFile);
+        String builtClassesDirs = ActionProviderImpl.builtClassesDirsForBootClassPath(testFile);
         builtClassesDirs = builtClassesDirs.replace(getWorkDir().getAbsolutePath(), "");
         assertEquals("/" + langtoolsClassesDir, builtClassesDirs);
         

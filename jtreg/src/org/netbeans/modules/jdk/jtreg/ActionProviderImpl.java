@@ -354,7 +354,7 @@ public class ActionProviderImpl implements ActionProvider {
         return new File(evaluator.evaluate("${target.java.home}"));
     }
 
-    private static String builtClassesDirsForBootClassPath(FileObject testFile) {
+    static String builtClassesDirsForBootClassPath(FileObject testFile) {
         File buildDir = getBuildTargetDir(testFile);
         Project prj = FileOwnerQuery.getOwner(testFile);
         List<FileObject> roots = new ArrayList<>();
