@@ -43,11 +43,16 @@ package org.netbeans.modules.jdk.project;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.InputStreamReader;
+import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import org.openide.filesystems.FileObject;
 import org.openide.xml.XMLUtil;
 import org.w3c.dom.Document;
@@ -91,25 +96,29 @@ public class ModuleDescription {
         if (repository != null)
             return repository;
 
+        List<ModuleDescription> moduleDescriptions;
         FileObject modulesXML = jdkRoot.getFileObject("modules.xml");
 
-        if (modulesXML == null)
+        if (modulesXML != null) {
+            moduleDescriptions = new ArrayList<>();
+            readModulesXml(modulesXML, moduleDescriptions);
+            readModulesXml(jdkRoot.getFileObject("closed/modules.xml"), moduleDescriptions);
+        } else {
+            moduleDescriptions = readModuleInfos(jdkRoot);
+        }
+
+        if (moduleDescriptions.isEmpty())
             return null;
         
-        List<ModuleDescription> moduleDescriptions = new ArrayList<>();
-
-        readModulesXml(modulesXML, moduleDescriptions);
-        readModulesXml(jdkRoot.getFileObject("closed/modules.xml"), moduleDescriptions);
-
         jdkRoot2Repository.put(jdkRoot, repository = new ModuleRepository(jdkRoot, moduleDescriptions));
 
         return repository;
     }
 
     private static FileObject findJDKRoot(FileObject projectDirectory) {
-        if (projectDirectory.getFileObject("../../../modules.xml") != null)
+        if (projectDirectory.getFileObject("../../../modules.xml") != null || projectDirectory.getFileObject("../../../jdk/src/java.base/share/classes/module-info.java") != null)
             return projectDirectory.getFileObject("../../..");
-        if (projectDirectory.getFileObject("../../../../modules.xml") != null)
+        if (projectDirectory.getFileObject("../../../../modules.xml") != null || projectDirectory.getFileObject("../../../../jdk/src/java.base/share/classes/module-info.java") != null)
             return projectDirectory.getFileObject("../../../..");
 
         return null;
@@ -177,6 +186,58 @@ public class ModuleDescription {
         }
 
         return new ModuleDescription(name, Collections.unmodifiableList(depend), Collections.unmodifiableMap(exports));
+    }
+
+    private static List<ModuleDescription> readModuleInfos(FileObject jdkRoot) throws Exception {
+        List<ModuleDescription> result = new ArrayList<>();
+        Enumeration<? extends FileObject> childEn = jdkRoot.getChildren(true);
+
+        while (childEn.hasMoreElements()) {
+            FileObject f = childEn.nextElement();
+
+            if ("module-info.java".equals(f.getNameExt())) {
+                ModuleDescription module = parseModuleInfo(f);
+
+                if (module != null) {
+                    result.add(module);
+                }
+            }
+        }
+
+        return result;
+    }
+
+    private static final Pattern MODULE = Pattern.compile("module\\s+(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
+    private static final Pattern REQUIRES = Pattern.compile("requires\\s+(public\\s+)?(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
+    private static ModuleDescription parseModuleInfo(FileObject f) throws IOException {
+        try (Reader r = new InputStreamReader(f.getInputStream())) {
+            StringBuilder content = new StringBuilder();
+            int read;
+
+            while ((read = r.read()) != (-1)) {
+                content.append((char) read);
+            }
+
+            Matcher moduleMatcher = MODULE.matcher(content);
+
+            if (!moduleMatcher.find())
+                return null;
+
+            String moduleName = moduleMatcher.group(1);
+
+            if (!moduleName.equals(f.getFileObject("../../..").getNameExt()))
+                return null;
+
+            List<String> depends = new ArrayList<>();
+
+            Matcher requiresMatcher = REQUIRES.matcher(content);
+
+            while (requiresMatcher.find()) {
+                depends.add(requiresMatcher.group(2));
+            }
+
+            return new ModuleDescription(moduleName, depends, Collections.<String, List<String>>emptyMap());
+        }
     }
 
     public static class ModuleRepository {
