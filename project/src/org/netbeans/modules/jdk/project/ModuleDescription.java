@@ -236,6 +236,9 @@ public class ModuleDescription {
                 depends.add(requiresMatcher.group(2));
             }
 
+            if (!depends.contains("java.base"))
+                depends.add("java.base");
+
             return new ModuleDescription(moduleName, depends, Collections.<String, List<String>>emptyMap());
         }
     }
