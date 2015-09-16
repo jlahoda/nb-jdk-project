@@ -6,3 +6,5 @@
 ^nbproject/private$
 netbeans_platform
 ^lib.jtreg/release/
+^lib.jtreg/jtreg-src-.*
+^lib.jtreg/asmtools-src-.*
