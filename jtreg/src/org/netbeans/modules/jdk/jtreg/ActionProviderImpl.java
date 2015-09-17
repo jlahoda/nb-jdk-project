@@ -267,7 +267,8 @@ public class ActionProviderImpl implements ActionProvider {
         FileObject jdkRoot;
         List<String> sourceDirPaths;
 
-        if (prj.getProjectDirectory().getFileObject("../../../modules.xml") != null) {
+        if (prj.getProjectDirectory().getFileObject("../../../modules.xml") != null ||
+            prj.getProjectDirectory().getFileObject("share/classes/module-info.java") != null) {
             jdkRoot = prj.getProjectDirectory().getFileObject("../../..");
             sourceDirPaths = Arrays.asList("*", "src", "*", "*", "classes");
         } else {
