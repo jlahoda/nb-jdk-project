@@ -27,7 +27,7 @@
              <property name="testng.jar" location="${nbplatform.active.dir}/platform/modules/ext/testng-6.8.1-dist.jar" />
              <property name="junit.jar" refid="junit.path" />
              <property name="build.version" value="4.1" />
-             <property name="build.number" value="b11" />
+             <property name="build.number" value="b12" />
         </ant>
         <copy file="${basedir}/jtreg-src-${jtreg.changeset}/dist/jtreg/lib/jtreg.jar" todir="release/modules/ext" />
     </target>
