@@ -235,8 +235,8 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add(jtregReport.getAbsolutePath());
                     options.add("-xml:verify");
                     options.add("-javacoptions:-g");
-                    if (hasXOverride(file)) {
-                        options.add("-Xoverride:" + builtClassesDirsForXOverride(file));
+                    if (hasXPatch(file)) {
+                        options.add("-Xpatch:" + builtClassesDirsForXOverride(file));
                     } else {
                         options.add("-Xbootclasspath/p:" + builtClassesDirsForBootClassPath(file));
                     }
@@ -320,7 +320,7 @@ public class ActionProviderImpl implements ActionProvider {
         return null;
     }
 
-    private static boolean hasXOverride(FileObject testFile) {
+    private static boolean hasXPatch(FileObject testFile) {
         Project prj = FileOwnerQuery.getOwner(testFile);
         FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
 
