@@ -101,7 +101,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         if (project.currentModule != null) {
             List<URL> compileElements = new ArrayList<>();
 
-            for (String dep : project.currentModule.depend) {
+            for (String dep : project.moduleRepository.allDependencies(project.currentModule)) {
                 FileObject depFO = project.moduleRepository.findModuleRoot(dep);
 
                 if (depFO == null)
@@ -113,6 +113,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                     Exceptions.printStackTrace(ex);
                 }
             }
+
             if (fakeJdkURL != null) {
                 compileElements.add(fakeJdkURL);
             }

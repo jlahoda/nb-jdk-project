@@ -46,11 +46,14 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.Collections;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.openide.filesystems.FileObject;
@@ -69,10 +72,10 @@ import org.xml.sax.SAXException;
 public class ModuleDescription {
 
     public final String name;
-    public final List<String> depend;
+    public final List<Dependency> depend;
     public final Map<String, List<String>> exports;
 
-    public ModuleDescription(String name, List<String> depend, Map<String, List<String>> exports) {
+    public ModuleDescription(String name, List<Dependency> depend, Map<String, List<String>> exports) {
         this.name = name;
         this.depend = depend;
         this.exports = exports;
@@ -141,7 +144,7 @@ public class ModuleDescription {
     private static ModuleDescription parseModule(Element moduleEl) {
         NodeList children = moduleEl.getChildNodes();
         String name = null;
-        List<String> depend = new ArrayList<>();
+        List<Dependency> depend = new ArrayList<>();
         Map<String, List<String>> exports = new HashMap<>();
 
         for (int i = 0; i < children.getLength(); i++) {
@@ -157,7 +160,7 @@ public class ModuleDescription {
                     name = childEl.getTextContent();
                     break;
                 case "depend":
-                    depend.add(childEl.getTextContent());
+                    depend.add(new Dependency(childEl.getTextContent(), "true".equals(childEl.getAttribute("re-exports"))));
                     break;
                 case "export":
                     String exported = null;
@@ -228,16 +231,20 @@ public class ModuleDescription {
             if (!moduleName.equals(f.getFileObject("../../..").getNameExt()))
                 return null;
 
-            List<String> depends = new ArrayList<>();
-
+            List<Dependency> depends = new ArrayList<>();
+            boolean hasJavaBaseDependency = false;
             Matcher requiresMatcher = REQUIRES.matcher(content);
 
             while (requiresMatcher.find()) {
-                depends.add(requiresMatcher.group(2));
+                String depName = requiresMatcher.group(2);
+
+                depends.add(new Dependency(depName, requiresMatcher.group(1) != null));
+
+                hasJavaBaseDependency |= depName.equals("java.base");
             }
 
-            if (!depends.contains("java.base"))
-                depends.add("java.base");
+            if (!hasJavaBaseDependency)
+                depends.listIterator().add(new Dependency("java.base", false));
 
             return new ModuleDescription(moduleName, depends, Collections.<String, List<String>>emptyMap());
         }
@@ -280,5 +287,41 @@ public class ModuleDescription {
             
             return null;
         }
+
+        public Collection<String> allDependencies(ModuleDescription module) {
+            Set<String> result = new LinkedHashSet<>();
+
+            allDependencies(module, result, false);
+
+            return result;
+        }
+
+        private void allDependencies(ModuleDescription module, Set<String> result, boolean transitiveOnly) {
+            for (Dependency dep : module.depend) {
+                if (transitiveOnly && !dep.requiresPublic)
+                    continue;
+
+                ModuleDescription md = findModule(dep.moduleName);
+
+                if (md == null) {
+                    //XXX
+                } else {
+                    allDependencies(md, result, true);
+                }
+
+                result.add(dep.moduleName);
+            }
+        }
+    }
+
+    public static final class Dependency {
+        public final String moduleName;
+        public final boolean requiresPublic;
+
+        public Dependency(String moduleName, boolean requiresPublic) {
+            this.moduleName = moduleName;
+            this.requiresPublic = requiresPublic;
+        }
+
     }
 }

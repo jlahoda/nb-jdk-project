@@ -50,6 +50,7 @@ import java.util.logging.Logger;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
+import org.netbeans.modules.jdk.project.ModuleDescription.Dependency;
 import org.netbeans.spi.project.SubprojectProvider;
 import org.openide.filesystems.FileObject;
 
@@ -69,8 +70,8 @@ public class SubProjectProviderImpl implements SubprojectProvider{
     public Set<? extends Project> getSubprojects() {
         if (project.currentModule == null) return Collections.emptySet();
         Set<Project> subprojects = new HashSet<>();
-        for (String depend : project.currentModule.depend) {
-            FileObject dependRoot = project.moduleRepository.findModuleRoot(depend);
+        for (Dependency depend : project.currentModule.depend) {
+            FileObject dependRoot = project.moduleRepository.findModuleRoot(depend.moduleName);
 
             if (dependRoot != null) {
                 try {
