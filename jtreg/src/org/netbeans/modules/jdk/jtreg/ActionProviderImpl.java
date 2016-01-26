@@ -394,7 +394,11 @@ public class ActionProviderImpl implements ActionProvider {
         FileObject repo = prj.getProjectDirectory().getParent().getParent();
         if (repo.getNameExt().equals("langtools") &&
             ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
-            buildClasses = prj.getProjectDirectory().getFileObject("../../build/classes");
+            buildClasses = prj.getProjectDirectory().getFileObject("../../build/modules");
+            if (buildClasses == null) {
+                //old style:
+                buildClasses = prj.getProjectDirectory().getFileObject("../../build/classes");
+            }
         } else {
             File buildDir = getBuildTargetDir(testFile);
             FileObject buildDirFO = FileUtil.toFileObject(buildDir);
