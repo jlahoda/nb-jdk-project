@@ -41,6 +41,14 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.io.IOException;
+import java.io.InputStream;
+import java.util.Properties;
+import java.util.logging.Level;
+import java.util.logging.Logger;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
 import org.netbeans.spi.java.queries.SourceLevelQueryImplementation;
 import org.openide.filesystems.FileObject;
 
@@ -50,9 +58,39 @@ import org.openide.filesystems.FileObject;
  */
 public class SourceLevelQueryImpl implements SourceLevelQueryImplementation  {
 
+    private static final Logger LOG = Logger.getLogger(SourceLevelQueryImpl.class.getName());
+    private static final String DEFAULT_SOURCE_LEVEL = "1.9";
+    private static final Pattern JDK_PATTERN = Pattern.compile("jdk([0-9]+)");
+
+    private final String sourceLevel;
+
+    public SourceLevelQueryImpl(FileObject jdkRoot) {
+        FileObject jcheckConf = jdkRoot.getFileObject(".jcheck/conf");
+        String sl = DEFAULT_SOURCE_LEVEL;
+
+        if (jcheckConf != null) {
+            Properties props = new Properties();
+
+            try (InputStream in = jcheckConf.getInputStream()) {
+                props.load(in);
+                String project = props.getProperty("project", "jdk9");
+                Matcher m = JDK_PATTERN.matcher(project);
+
+                if (m.find()) {
+                    sl = m.group(1);
+                }
+            } catch (IOException ex) {
+                LOG.log(Level.FINE, null, ex);
+            }
+        }
+
+        this.sourceLevel = sl;
+    }
+
+
     @Override
     public String getSourceLevel(FileObject javaFile) {
-        return "1.8";//TODO: read this from the JDK configuration
+        return sourceLevel;
     }
     
 }

@@ -139,7 +139,7 @@ public class JDKProject implements Project {
         properties.setProperty("os", osKey);
         properties.setProperty("generalized-os", generalizedOsKey);
         properties.setProperty("legacy-os", legacyOsKey);
-        FileObject jdkRoot = projectDir.getFileObject("../../.."); //XXX: this is incorrect for legacy projects!!!
+        FileObject jdkRoot = moduleRepository != null ? projectDir.getFileObject("../../..") : projectDir.getFileObject("..");
         properties.setProperty("jdkRoot", stripTrailingSlash(jdkRoot.toURI().toString()));
         configurations = ConfigurationImpl.getProvider(jdkRoot);
 
@@ -204,7 +204,7 @@ public class JDKProject implements Project {
                                     new OpenProjectHookImpl(cpp),
                                     new SourcesImpl(this),
                                     new LogicalViewProviderImpl(this),
-                                    new SourceLevelQueryImpl(),
+                                    new SourceLevelQueryImpl(jdkRoot),
                                     new SourceForBinaryQueryImpl(fakeOutputURL, cpp.getSourceCP()),
                                     new ProjectInformationImpl(),
                                     configurations,
