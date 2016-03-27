@@ -49,6 +49,7 @@ import com.sun.javatest.regtest.Main;
 import com.sun.javatest.regtest.Main.Fault;
 import java.io.File;
 import java.io.IOException;
+import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -236,13 +237,18 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add("-xml:verify");
                     options.add("-javacoptions:-g");
                     if (hasXPatch(file)) {
-                        options.add("-Xpatch:" + builtClassesDirsForXOverride(file));
+                        if (!fullBuild(file))
+                            options.add("-Xpatch:" + builtClassesDirsForXOverride(file));
                     } else {
                         options.add("-Xbootclasspath/p:" + builtClassesDirsForBootClassPath(file));
                     }
                     options.add(FileUtil.toFile(file).getAbsolutePath());
                     try {
-                        new Main().run(options.toArray(new String[options.size()]));
+                        PrintWriter outW = new PrintWriter(io.getOut());
+                        PrintWriter errW = new PrintWriter(io.getErr());
+                        new Main(outW, errW).run(options.toArray(new String[options.size()]));
+                        outW.flush();
+                        errW.flush();
                         success = true;
                         printJTR(io, jtregWork, fullSourcePath, file);
                     } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
@@ -336,7 +342,7 @@ public class ActionProviderImpl implements ActionProvider {
             if (candidate.isDirectory()) {
                 return candidate;
             } else {
-                return new File(buildDir, "images/jdk");
+                return new File(buildDir, "jdk");
            }
         }
 
@@ -385,6 +391,19 @@ public class ActionProviderImpl implements ActionProvider {
         }
 
         return built.toString();
+    }
+
+    static boolean fullBuild(FileObject testFile) {
+        File buildDir = getBuildTargetDir(testFile);
+        Project prj = FileOwnerQuery.getOwner(testFile);
+
+        if (buildDir != null) {
+            FileObject repo = prj.getProjectDirectory().getParent().getParent();
+            return !(repo.getNameExt().equals("langtools") &&
+                    ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile)));
+        }
+
+        return false;
     }
 
     private static String builtClassesDirsForXOverride(FileObject testFile) {
