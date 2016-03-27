@@ -1,7 +1,15 @@
-diff -r 497d2879f4de make/build.xml
---- a/make/build.xml	Fri Jul 31 08:31:48 2015 +0200
-+++ b/make/build.xml	Fri Jul 31 08:32:44 2015 +0200
-@@ -192,7 +192,7 @@
+diff -r 4ae8bc883554 make/build.xml
+--- a/make/build.xml	Sun Mar 27 22:15:28 2016 +0200
++++ b/make/build.xml	Sun Mar 27 22:26:53 2016 +0200
+@@ -92,6 +92,7 @@
+     <patternset id="jtreg.packages">
+         <include name="com/sun/javatest/regtest/**"/>
+         <include name="com/sun/javatest/diff/**"/>
++        <include name="java/lang/reflect/**"/>
+     </patternset>
+ 
+     <patternset id="jtreg.jdk11.files">
+@@ -192,7 +193,7 @@
              debug="true" debuglevel="source,lines"
              srcdir="${src.classes.dir}"
              destdir="${build.classes.dir}"
@@ -10,10 +18,10 @@ diff -r 497d2879f4de make/build.xml
              includeantruntime="true">
              <compilerarg line="-Xlint:all"/>
              <patternset refid="jtreg.packages"/>
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/Action.java
---- a/src/share/classes/com/sun/javatest/regtest/Action.java	Fri Jul 31 08:31:48 2015 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/Action.java	Fri Jul 31 08:32:44 2015 +0200
-@@ -254,6 +254,12 @@
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Action.java
+--- a/src/share/classes/com/sun/javatest/regtest/Action.java	Sun Mar 27 22:15:28 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/Action.java	Sun Mar 27 22:26:53 2016 +0200
+@@ -308,6 +308,12 @@
       * </pre>
       */
      protected void startAction() {
@@ -26,7 +34,7 @@ diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/Action.java
          String name = getName();
          section = script.getTestResult().createSection(name);
  
-@@ -278,6 +284,12 @@
+@@ -332,6 +338,12 @@
          pw.println(LOG_ELAPSED_TIME + ((double) elapsedTime/1000.0));
          recorder.close();
          section.setStatus(status);
@@ -39,9 +47,9 @@ diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/Action.java
      } // endAction()
  
      //----------workarounds-------------------------------------------------------
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Fri Jul 31 08:32:44 2015 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Sun Mar 27 22:26:53 2016 +0200
 @@ -0,0 +1,38 @@
 +/*
 + * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
@@ -81,10 +89,10 @@ diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/ActionCallBack.j
 +    public void actionEnded(Action action);
 +
 +}
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/CompileAction.java
---- a/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Fri Jul 31 08:31:48 2015 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Fri Jul 31 08:32:44 2015 +0200
-@@ -417,6 +417,12 @@
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/CompileAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sun Mar 27 22:15:28 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sun Mar 27 22:26:53 2016 +0200
+@@ -501,6 +501,12 @@
          String javacCmd = script.getJavacProg();
  
          List<String> javacVMOpts = new ArrayList<String>();
@@ -95,12 +103,12 @@ diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/CompileAction.ja
 +        }
 +
          javacVMOpts.addAll(script.getTestVMOptions());
-         if (script.getCompileJDK().equals(script.getTestJDK()))
+         if (addDebugOpts && script.getCompileJDK().equals(script.getTestJDK()))
              javacVMOpts.addAll(script.getTestDebugOptions());
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/Main.java
---- a/src/share/classes/com/sun/javatest/regtest/Main.java	Fri Jul 31 08:31:48 2015 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/Main.java	Fri Jul 31 08:32:44 2015 +0200
-@@ -1071,6 +1071,8 @@
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Main.java
+--- a/src/share/classes/com/sun/javatest/regtest/Main.java	Sun Mar 27 22:15:28 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/Main.java	Sun Mar 27 22:26:53 2016 +0200
+@@ -1050,6 +1050,8 @@
          return run();
      }
  
@@ -109,35 +117,50 @@ diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/Main.java
      private int run() throws BadArgs, Fault, Harness.Fault, InterruptedException {
          findSystemJarFiles();
  
-@@ -2014,6 +2016,8 @@
-             if (nativeDirArg != null)
-                 rp.setNativeDir(nativeDirArg);
+@@ -1102,10 +1104,10 @@
+             Version requiredVersion = ts.getRequiredVersion();
+             Version currentVersion = Version.getCurrent();
+             if (requiredVersion.compareTo(currentVersion) > 0) {
+-                throw new Fault(i18n, "main.requiredVersion",
+-                        ts.getPath(),
+-                        requiredVersion.version, requiredVersion.build,
+-                        currentVersion.version, currentVersion.build);
++                err.println(i18n.getString("main.requiredVersion", new Object[] {
++                                           ts.getPath(),
++                                           requiredVersion.version, requiredVersion.build,
++                                           currentVersion.version, currentVersion.build}));
+             }
+         }
+ 
+@@ -1781,6 +1783,8 @@
+ 
+             rp.initExprContext(); // will invoke/init jdk.getProperties(params)
  
 +            rp.setCallBack(callBack);
 +
              return rp;
          } catch (TestSuite.Fault f) {
              // TODO: fix bad string -- need more helpful resource here
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/MainAction.java
---- a/src/share/classes/com/sun/javatest/regtest/MainAction.java	Fri Jul 31 08:31:48 2015 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/MainAction.java	Fri Jul 31 08:32:44 2015 +0200
-@@ -386,6 +386,12 @@
-         javaOpts.addAll(updateAddExports(script.getTestVMJavaOptions(), script.getModules()));
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/MainAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sun Mar 27 22:15:28 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sun Mar 27 22:26:53 2016 +0200
+@@ -413,6 +413,12 @@
+         javaOpts.addAll(script.getTestVMJavaOptions());
          javaOpts.addAll(script.getTestDebugOptions());
  
 +        ActionCallBack callBack = script.getCallBack();
 +
 +        if (callBack != null) {
-+            javaOpts.addAll(callBack.getAdditionalVMJavaOptions(this));
++            javaOpts.addAll(new ArrayList<String>(callBack.getAdditionalVMJavaOptions(this)));
 +        }
 +
          Map<String, String> javaProps = new LinkedHashMap<String, String>();
          javaProps.putAll(script.getTestProperties());
  
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/RegressionParameters.java
---- a/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Fri Jul 31 08:31:48 2015 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Fri Jul 31 08:32:44 2015 +0200
-@@ -951,4 +951,14 @@
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionParameters.java
+--- a/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sun Mar 27 22:15:28 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sun Mar 27 22:26:53 2016 +0200
+@@ -1110,4 +1110,14 @@
      private final Set<Integer> retainStatusSet = new HashSet<Integer>(4);
      private Pattern retainFilesPattern;
  
@@ -152,10 +175,10 @@ diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/RegressionParame
 +    }
 +
  }
-diff -r 497d2879f4de src/share/classes/com/sun/javatest/regtest/RegressionScript.java
---- a/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Fri Jul 31 08:31:48 2015 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Fri Jul 31 08:32:44 2015 +0200
-@@ -708,6 +708,10 @@
+diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionScript.java
+--- a/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sun Mar 27 22:15:28 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sun Mar 27 22:26:53 2016 +0200
+@@ -993,6 +993,10 @@
          return params.getCompileJDK().getJavacProg().getPath();
      }
  
