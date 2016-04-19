@@ -237,8 +237,15 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add("-xml:verify");
                     options.add("-javacoptions:-g");
                     if (hasXPatch(file)) {
-                        if (!fullBuild(file))
-                            options.add("-Xpatch:" + builtClassesDirsForXOverride(file));
+                        if (!fullBuild(file)) {
+                            File buildClasses = builtClassesDirsForXOverride(file);
+                            File[] modules = buildClasses != null ? buildClasses.listFiles() : null;
+                            if (modules != null) {
+                                for (File module : modules) {
+                                    options.add("-Xpatch:" + module.getName() + "=" + module.getAbsolutePath());
+                                }
+                            }
+                        }
                     } else {
                         options.add("-Xbootclasspath/p:" + builtClassesDirsForBootClassPath(file));
                     }
@@ -406,7 +413,7 @@ public class ActionProviderImpl implements ActionProvider {
         return false;
     }
 
-    private static String builtClassesDirsForXOverride(FileObject testFile) {
+    private static File builtClassesDirsForXOverride(FileObject testFile) {
         Project prj = FileOwnerQuery.getOwner(testFile);
         FileObject buildClasses;
 
@@ -424,7 +431,7 @@ public class ActionProviderImpl implements ActionProvider {
             buildClasses = buildDirFO != null ? buildDirFO.getFileObject("jdk/modules") : null;
         }
 
-        return buildClasses != null ? FileUtil.toFile(buildClasses).getAbsoluteFile().getAbsolutePath() : "";
+        return buildClasses != null ? FileUtil.toFile(buildClasses).getAbsoluteFile() : null;
     }
 
     static File jtregOutputDir(FileObject testFile) {
