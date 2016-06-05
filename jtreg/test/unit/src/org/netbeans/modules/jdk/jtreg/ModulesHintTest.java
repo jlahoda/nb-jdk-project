@@ -253,6 +253,26 @@ public class ModulesHintTest extends NbTestCase {
                "}\n");
     }
 
+    public void testImproperMethodReference() throws Exception {
+        doTest("/**|@test|\n" +
+               " */\n" +
+               "public class Test {\n" +
+               "    void run(Runnable r) {;\n" +
+               "        run(this::undef);\n" +
+               "    }\n" +
+               "    com.sun.tools.javac.Main m;\n" +
+               "}\n",
+               "/**@test\n" +
+               " * @modules java.compiler\n" +
+               " */\n" +
+               "public class Test {\n" +
+               "    void run(Runnable r) {;\n" +
+               "        run(this::undef);\n" +
+               "    }\n" +
+               "    com.sun.tools.javac.Main m;\n" +
+               "}\n");
+    }
+
     private void doTest(String originalTest, final String expected) throws Exception {
         createData("jdk/src/java.base/share/classes/module-info.java", "module java.base { exports java.lang; }");
         createData("jdk/src/java.base/share/classes/java/lang/Object.java", "package java.lang; public class Object {}");

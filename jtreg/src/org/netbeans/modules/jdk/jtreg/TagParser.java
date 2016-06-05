@@ -42,6 +42,7 @@
 package org.netbeans.modules.jdk.jtreg;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.List;
@@ -62,17 +63,21 @@ import org.netbeans.api.lexer.TokenSequence;
  */
 public class TagParser {
 
+    public static final List<String> RECOMMENDED_TAGS_ORDER = Arrays.asList(
+            "test", "bug", "summary", "library", "author", "modules", "requires", "key", "library", "modules"
+    );
+
     private static final Pattern TAG_PATTERN = Pattern.compile("@([a-zA-Z]+)(\\s+|$)");
 
-    public static Map<String, List<Tag>> parseTags(CompilationInfo info) {
+    public static Result parseTags(CompilationInfo info) {
         return parseTags(info.getTokenHierarchy().tokenSequence(JavaTokenId.language()));
     }
 
-    public static Map<String, List<Tag>> parseTags(Document doc) {
+    public static Result parseTags(Document doc) {
         return parseTags(TokenHierarchy.get(doc).tokenSequence(JavaTokenId.language()));
     }
 
-    private static Map<String, List<Tag>> parseTags(TokenSequence<JavaTokenId> ts) {
+    private static Result parseTags(TokenSequence<JavaTokenId> ts) {
         while (ts.moveNext()) {
             if (ts.token().id() == JavaTokenId.BLOCK_COMMENT || ts.token().id() == JavaTokenId.JAVADOC_COMMENT) {
                 String text = ts.token().text().toString();
@@ -88,8 +93,9 @@ public class TagParser {
 
                     String tagName = null;
                     StringBuilder tagText = new StringBuilder();
-                    String[] lines = text.split("\n");
-                    int pos = ts.offset();
+                    int prefix = ts.token().id() == JavaTokenId.BLOCK_COMMENT ? 2 : 3;
+                    String[] lines = text.substring(prefix).split("\n");
+                    int pos = ts.offset() + prefix;
 
                     for (String line : lines) {
                         if (line.replaceAll("[*\\s]+", "").isEmpty()) {
@@ -137,11 +143,30 @@ public class TagParser {
                         innerTags.add(tag);
                     }
 
-                    return result;
+                    return new Result(tags, result);
                 }
             }
         }
 
-        return Collections.emptyMap();
+        return new Result(Collections.<Tag>emptyList(), Collections.<String, List<Tag>>emptyMap());
+    }
+
+    public static final class Result {
+        private final List<Tag> tags;
+        private final Map<String, List<Tag>> name2Tag;
+
+        public Result(List<Tag> tags, Map<String, List<Tag>> name2Tag) {
+            this.tags = tags;
+            this.name2Tag = name2Tag;
+        }
+
+        public List<Tag> getTags() {
+            return tags;
+        }
+
+        public Map<String, List<Tag>> getName2Tag() {
+            return name2Tag;
+        }
+        
     }
 }

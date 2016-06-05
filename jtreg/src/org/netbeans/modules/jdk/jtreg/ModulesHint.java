@@ -45,7 +45,6 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
@@ -62,9 +61,6 @@ import java.util.regex.Pattern;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.TypeElement;
-import javax.swing.text.BadLocationException;
-import javax.swing.text.Document;
-import javax.swing.text.StyledDocument;
 
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.Tree;
@@ -76,18 +72,17 @@ import org.netbeans.api.java.source.ElementHandle;
 import org.netbeans.api.java.source.SourceUtils;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
-import org.netbeans.modules.parsing.api.Source;
-import org.netbeans.spi.editor.hints.ChangeInfo;
+import org.netbeans.modules.jdk.jtreg.TagParser.Result;
 import org.netbeans.spi.editor.hints.ErrorDescription;
 import org.netbeans.spi.editor.hints.Fix;
 import org.netbeans.spi.java.hints.ErrorDescriptionFactory;
 import org.netbeans.spi.java.hints.Hint;
 import org.netbeans.spi.java.hints.HintContext;
+import org.netbeans.spi.java.hints.JavaFix;
 import org.netbeans.spi.java.hints.TriggerTreeKind;
 import org.netbeans.spi.project.SubprojectProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.text.NbDocument;
 import org.openide.util.Exceptions;
 import org.openide.util.NbBundle.Messages;
 import org.openide.util.Pair;
@@ -100,8 +95,6 @@ import org.openide.util.TopologicalSortException;
 })
 public class ModulesHint {
 
-    private static final List<String> HEADER_TAGS_IN_ORDER = Arrays.asList("test", "bug", "summary", "library", "modules");
-
     @TriggerTreeKind(Kind.COMPILATION_UNIT)
     @Messages("ERR_ModulesHint=Incorrect @modules tag")
     public static ErrorDescription computeWarning(final HintContext ctx) {
@@ -113,9 +106,9 @@ public class ModulesHint {
     }
 
     static Pair<Fix, int[]> computeChange(CompilationInfo info) {
-        Map<String, List<Tag>> tags = TagParser.parseTags(info);
+        Result tags = TagParser.parseTags(info);
 
-        if (!tags.containsKey("test"))
+        if (!tags.getName2Tag().containsKey("test"))
             return null; //TODO: test
 
         Pair<Map<String, Set<String>>, Set<Project>> computeModulesAndPackagesAndProjects = computeModulesAndPackages(info, tags);
@@ -126,13 +119,13 @@ public class ModulesHint {
         if (Objects.equals(expected, actual))
             return null;
 
-        List<Tag> markTag = tags.get("modules");
+        List<Tag> markTag = tags.getName2Tag().get("modules");
 
         if (markTag == null || markTag.isEmpty()) {
-            markTag = tags.get("test");
+            markTag = tags.getName2Tag().get("test");
         }
 
-        return Pair.<Fix, int[]>of(new FixImpl(info.getFileObject(), expected), new int[] {markTag.get(0).getTagStart(), markTag.get(0).getTagEnd()});
+        return Pair.<Fix, int[]>of(new FixImpl(info, new TreePath(info.getCompilationUnit()), expected).toEditorFix(), new int[] {markTag.get(0).getTagStart(), markTag.get(0).getTagEnd()});
     }
 
     private static Map<String, Set<String>> projectDependencies(Set<Project> projects) {
@@ -207,7 +200,7 @@ public class ModulesHint {
         return modulesAndPackages;
     }
 
-    static Pair<Map<String, Set<String>>, Set<Project>> computeModulesAndPackages(final CompilationInfo info, Map<String, List<Tag>> tags) {
+    static Pair<Map<String, Set<String>>, Set<Project>> computeModulesAndPackages(final CompilationInfo info, Result tags) {
         Map<String, Set<String>> module2UsedUnexportedPackages = new HashMap<>();
         Set<TypeElement> seenClasses = new HashSet<>();
         Set<Project> seenProjects = new HashSet<>();
@@ -215,7 +208,7 @@ public class ModulesHint {
 
         computeModulesAndPackages(info, info.getCompilationUnit(), module2UsedUnexportedPackages, seenClasses, seenProjects, seen);
 
-        List<Tag> buildTags = tags.get("build");
+        List<Tag> buildTags = tags.getName2Tag().get("build");
 
         if (buildTags != null) {
             for (Tag buildTag : buildTags) {
@@ -259,7 +252,7 @@ public class ModulesHint {
 
                 Element el = info.getTrees().getElement(new TreePath(getCurrentPath(), tree));
 
-                if (el != null && el.getKind() != ElementKind.PACKAGE) {
+                if (el != null && el.getKind() != ElementKind.PACKAGE && el.getKind() != ElementKind.OTHER) {
                     TypeElement outermost = info.getElementUtilities().outermostTypeElement(el);
                     if (outermost != null) {
                         if (seenClasses.add(outermost)) {
@@ -328,8 +321,8 @@ public class ModulesHint {
         }
     }
 
-    static Pair<Map<String, Set<String>>, int[]> readModulesAndPackages(Map<String, List<Tag>> tags) {
-        List<Tag> modulesTags = tags.get("modules");
+    static Pair<Map<String, Set<String>>, int[]> readModulesAndPackages(Result tags) {
+        List<Tag> modulesTags = tags.getName2Tag().get("modules");
 
         if (modulesTags == null || modulesTags.isEmpty())
             return Pair.of(Collections.<String, Set<String>>emptyMap(), new int[] {-1, -1});
@@ -385,13 +378,12 @@ public class ModulesHint {
         return exported;
     }
 
-    private static final class FixImpl implements Fix {
+    private static final class FixImpl extends JavaFix {
 
-        private final FileObject file;
         private final Map<String, Set<String>> expected;
 
-        private FixImpl(FileObject file, Map<String, Set<String>> expected) {
-            this.file = file;
+        private FixImpl(CompilationInfo info, TreePath tp, Map<String, Set<String>> expected) {
+            super(info, tp);
             this.expected = expected;
         }
 
@@ -402,13 +394,7 @@ public class ModulesHint {
         }
 
         @Override
-        public ChangeInfo implement() throws Exception {
-            final Document doc = Source.create(file).getDocument(false);
-
-            if (doc == null) {
-                return null;
-            }
-
+        protected void performRewrite(TransformationContext ctx) throws Exception {
             final List<String> records = new ArrayList<>();
 
             for (Map.Entry<String, Set<String>> e : expected.entrySet()) {
@@ -439,49 +425,36 @@ public class ModulesHint {
                 atModules.append(r).append("\n");
             }
 
-            NbDocument.runAtomic((StyledDocument) doc, new Runnable() {
-                @Override
-                public void run() {
-                    try {
-                    Map<String, List<Tag>> tags = TagParser.parseTags(doc);
-                    int[] span = readModulesAndPackages(tags).second();
-                    int pos;
+            Result tags = TagParser.parseTags(ctx.getWorkingCopy());
+            int[] span = readModulesAndPackages(tags).second();
+            int start = -1;
+            int end = -1;
 
-                    if (span[0] != (-1)) {
-                        doc.remove(span[0], span[1] - span[0]);
-                        pos = span[0];
-                    } else {
-                        Map<Integer, Tag> end2Tag = new TreeMap<>();
+            if (span[0] != (-1)) {
+                start = span[0];
+                end = span[1];
+            } else {
+                Map<Integer, Tag> end2Tag = new TreeMap<>();
 
-                        for (List<Tag> tagsForName : tags.values()) {
-                            for (Tag tag : tagsForName) {
-                                end2Tag.put(tag.getEnd(), tag);
-                            }
-                        }
-
-                        int modulesIndex = HEADER_TAGS_IN_ORDER.indexOf("modules");
-                        pos = -1;
-
-                        for (Map.Entry<Integer, Tag> e : end2Tag.entrySet()) {
-                            int currentIndex = HEADER_TAGS_IN_ORDER.indexOf(e.getValue().getName());
-
-                            if (currentIndex == (-1) || currentIndex > modulesIndex)
-                                break;
-
-                            pos = e.getKey();
-                        }
-                    }
-
-                    if (!records.isEmpty())
-                        doc.insertString(pos, atModules.toString(), null);
-
-                    } catch (BadLocationException ble) {
-                        throw new IllegalStateException(ble);
+                for (List<Tag> tagsForName : tags.getName2Tag().values()) {
+                    for (Tag tag : tagsForName) {
+                        end2Tag.put(tag.getEnd(), tag);
                     }
                 }
-            });
 
-            return null;
+                int modulesIndex = TagParser.RECOMMENDED_TAGS_ORDER.indexOf("modules");
+
+                for (Map.Entry<Integer, Tag> e : end2Tag.entrySet()) {
+                    int currentIndex = TagParser.RECOMMENDED_TAGS_ORDER.indexOf(e.getValue().getName());
+
+                    if (currentIndex == (-1) || currentIndex > modulesIndex)
+                        break;
+
+                    start = end = e.getKey();
+                }
+            }
+
+            ctx.getWorkingCopy().rewriteInComment(start, end - start, records.isEmpty() ? "" : atModules.toString());
         }
     }
 }
