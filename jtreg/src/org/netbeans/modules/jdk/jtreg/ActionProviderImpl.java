@@ -45,8 +45,10 @@ import com.sun.javatest.Harness;
 import com.sun.javatest.regtest.Action;
 import com.sun.javatest.regtest.ActionCallBack;
 import com.sun.javatest.regtest.BadArgs;
+import com.sun.javatest.regtest.JDK;
 import com.sun.javatest.regtest.Main;
 import com.sun.javatest.regtest.Main.Fault;
+import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
 import java.io.PrintWriter;
@@ -57,12 +59,16 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.WeakHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import javax.swing.AbstractAction;
+import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
@@ -84,6 +90,7 @@ import org.openide.text.Line;
 import org.openide.text.Line.ShowOpenType;
 import org.openide.text.Line.ShowVisibilityType;
 import org.openide.util.Exceptions;
+import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
 import org.openide.util.Mutex;
 import org.openide.util.NbBundle.Messages;
@@ -133,7 +140,15 @@ public class ActionProviderImpl implements ActionProvider {
     public static ExecutorTask createAndRunTest(Lookup context, final boolean debug) throws BadLocationException, IOException {
         final FileObject file = context.lookup(FileObject.class);
         String ioName = debug ? Bundle.DN_Debugging(file.getName()) : Bundle.DN_Running(file.getName());
-        final InputOutput io = IOProvider.getDefault().getIO(ioName, false);
+        StopAction newStop = new StopAction();
+        ReRunAction newReRun = new ReRunAction(false);
+        ReRunAction newReDebug = new ReRunAction(true);
+        final InputOutput io = IOProvider.getDefault().getIO(ioName, false, new javax.swing.Action[] {newReRun, newReDebug, newStop}, null);
+        final StopAction stop = StopAction.record(io, newStop);
+        final ReRunAction rerun = ReRunAction.recordRun(io, newReRun);
+        final ReRunAction redebug = ReRunAction.recordDebug(io, newReDebug);
+        rerun.setFile(file);
+        redebug.setFile(file);
         File jtregOutput = jtregOutputDir(file);
         final File jtregWork = new File(jtregOutput, "work");
         final File jtregReport = new File(jtregOutput, "report");
@@ -148,6 +163,8 @@ public class ActionProviderImpl implements ActionProvider {
                     } catch (IOException ex) {
                         Exceptions.printStackTrace(ex);
                     }
+                    rerun.disable();
+                    redebug.disable();
                     Project prj = FileOwnerQuery.getOwner(file);
                     ActionProvider prjAP = prj != null ? prj.getLookup().lookup(ActionProvider.class) : null;
                     if (prjAP != null) {
@@ -251,6 +268,8 @@ public class ActionProviderImpl implements ActionProvider {
                     }
                     options.add(FileUtil.toFile(file).getAbsolutePath());
                     try {
+                        stop.started();
+                        JDK.clearCache();
                         PrintWriter outW = new PrintWriter(io.getOut());
                         PrintWriter errW = new PrintWriter(io.getErr());
                         new Main(outW, errW).run(options.toArray(new String[options.size()]));
@@ -260,6 +279,8 @@ public class ActionProviderImpl implements ActionProvider {
                         printJTR(io, jtregWork, fullSourcePath, file);
                     } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
                         ex.printStackTrace(io.getErr());
+                    } finally {
+                        stop.finished();
                     }
                 } finally {
                     io.getOut().close();
@@ -270,6 +291,8 @@ public class ActionProviderImpl implements ActionProvider {
                         Exceptions.printStackTrace(ex);
                     }
                     progress.finished(success);
+                    rerun.enable();
+                    redebug.enable();
                 }
             }
         }, io);
@@ -564,6 +587,125 @@ public class ActionProviderImpl implements ActionProvider {
         }
 
         return false;
+    }
+
+    private static final class StopAction extends AbstractAction {
+
+        private static final long serialVersionUID = 1L;
+        private static final Map<InputOutput, StopAction> actions = new WeakHashMap<>();
+
+        public static StopAction record(InputOutput io, StopAction ifAbsent) {
+            StopAction res = actions.get(io);
+
+            if (res == null) {
+                actions.put(io, res = ifAbsent);
+            }
+
+            return res;
+        }
+
+        private Thread executor;
+
+        @Messages("DESC_Stop=Stop")
+        public StopAction() {
+            setEnabledEQ(false);
+            putValue(SMALL_ICON, ImageUtilities.loadImageIcon("org/netbeans/modules/jdk/jtreg/resources/stop.png", true));
+            putValue(SHORT_DESCRIPTION, Bundle.DESC_Stop());
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            executor.interrupt();
+            setEnabledEQ(false);
+        }
+
+        private void started() {
+            executor = Thread.currentThread();
+            setEnabledEQ(true);
+        }
+
+        private void finished() {
+            executor = null;
+            setEnabledEQ(false);
+        }
+
+        private void setEnabledEQ(final boolean enabled) {
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    setEnabled(enabled);
+                }
+            });
+        }
+    }
+
+    private static final class ReRunAction extends AbstractAction {
+
+        private static final long serialVersionUID = 1L;
+        private static final Map<InputOutput, ReRunAction> runActions = new WeakHashMap<>();
+        private static final Map<InputOutput, ReRunAction> debugActions = new WeakHashMap<>();
+
+        public static ReRunAction recordRun(InputOutput io, ReRunAction ifAbsent) {
+            return record(io, runActions, ifAbsent);
+        }
+
+        public static ReRunAction recordDebug(InputOutput io, ReRunAction ifAbsent) {
+            return record(io, debugActions, ifAbsent);
+        }
+
+        private static ReRunAction record(InputOutput io, Map<InputOutput, ReRunAction> actions, ReRunAction ifAbsent) {
+            ReRunAction res = actions.get(io);
+
+            if (res == null) {
+                actions.put(io, res = ifAbsent);
+            }
+
+            return res;
+        }
+
+        private FileObject file;
+        private final boolean debug;
+
+        @Messages({
+            "DESC_ReRun=Run test again",
+            "DESC_ReDebug=Run test again under debugger"
+        })
+        public ReRunAction(boolean debug) {
+            setEnabledEQ(false);
+            putValue(SMALL_ICON, ImageUtilities.loadImageIcon(debug ? "org/netbeans/modules/jdk/jtreg/resources/redebug.png" : "org/netbeans/modules/jdk/jtreg/resources/rerun.png", true));
+            putValue(SHORT_DESCRIPTION, debug ? Bundle.DESC_ReDebug() : Bundle.DESC_ReRun());
+            this.debug = debug;
+        }
+
+        public void setFile(FileObject file) {
+            this.file = file;
+        }
+
+        @Override
+        public void actionPerformed(ActionEvent e) {
+            try {
+                ActionProviderImpl.createAndRunTest(Lookups.singleton(file), debug);
+            } catch (BadLocationException | IOException ex) {
+                Exceptions.printStackTrace(ex);
+            }
+        }
+
+        private void enable() {
+            setEnabledEQ(true);
+        }
+
+        private void disable() {
+            setEnabledEQ(false);
+        }
+
+        private void setEnabledEQ(final boolean enabled) {
+            SwingUtilities.invokeLater(new Runnable() {
+                @Override
+                public void run() {
+                    setEnabled(enabled);
+                }
+            });
+        }
     }
 
 }

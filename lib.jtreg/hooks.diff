@@ -189,3 +189,17 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionScript
      //--------------------------------------------------------------------------
  
      // Get the standard properties to be set for tests
+diff -r 58c0d0e99a17 src/share/classes/com/sun/javatest/regtest/JDK.java
+--- a/src/share/classes/com/sun/javatest/regtest/JDK.java	Wed Jul 06 13:35:18 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/JDK.java	Wed Jul 06 13:38:50 2016 +0200
+@@ -80,6 +80,10 @@
+ 
+     private static final Map<File, JDK> cache = new HashMap<File, JDK>();
+ 
++    public static synchronized void clearCache() {
++        cache.clear();
++    }
++
+     private JDK(File jdk) {
+         this.jdk = jdk;
+         absJDK = jdk.getAbsoluteFile();
