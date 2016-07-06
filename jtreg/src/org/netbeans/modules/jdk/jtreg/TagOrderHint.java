@@ -72,7 +72,7 @@ public class TagOrderHint {
         List<Tag> sorted = sortTags(tags);
 
         if (!tags.getTags().equals(sorted)) {
-            ErrorDescription idealED = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), Bundle.ERR_ModulesHint(), new FixImpl(ctx.getInfo(), ctx.getPath()).toEditorFix());
+            ErrorDescription idealED = ErrorDescriptionFactory.forName(ctx, ctx.getPath(), Bundle.ERR_TagOrderHint(), new FixImpl(ctx.getInfo(), ctx.getPath()).toEditorFix());
             List<Tag> test = tags.getName2Tag().get("test");
 
             return org.netbeans.spi.editor.hints.ErrorDescriptionFactory.createErrorDescription(idealED.getSeverity(), idealED.getDescription(), idealED.getFixes(), ctx.getInfo().getFileObject(), test.get(0).getTagStart(), test.get(0).getTagEnd());
