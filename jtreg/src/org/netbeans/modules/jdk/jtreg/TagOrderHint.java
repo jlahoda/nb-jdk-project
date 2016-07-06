@@ -66,7 +66,7 @@ import org.openide.util.NbBundle.Messages;
 public class TagOrderHint {
 
     @TriggerTreeKind(Kind.COMPILATION_UNIT)
-    @Messages("ERR_TagOrderHint=Incorrect @modules tag")
+    @Messages("ERR_TagOrderHint=Incorrect tag order")
     public static ErrorDescription computeWarning(HintContext ctx) {
         Result tags = TagParser.parseTags(ctx.getInfo());
         List<Tag> sorted = sortTags(tags);
