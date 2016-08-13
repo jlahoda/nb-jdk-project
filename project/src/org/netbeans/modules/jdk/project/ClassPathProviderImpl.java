@@ -45,16 +45,22 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.beans.PropertyChangeSupport;
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.jar.JarEntry;
+import java.util.jar.JarOutputStream;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
+import org.netbeans.api.java.classpath.JavaClassPathConstants;
 import org.netbeans.api.project.libraries.Library;
 import org.netbeans.api.project.libraries.LibraryManager;
 import org.netbeans.modules.jdk.project.JDKProject.Root;
@@ -69,6 +75,7 @@ import org.netbeans.spi.project.support.ant.PropertyEvaluator;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
 import org.openide.modules.InstalledFileLocator;
+import org.openide.modules.Places;
 import org.openide.util.Exceptions;
 
 /**
@@ -85,6 +92,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
     
     private final ClassPath bootCP;
     private final ClassPath compileCP;
+    private final ClassPath moduleCompileCP;
     private final ClassPath sourceCP;
     private final ClassPath testsCompileCP;
     private final ClassPath testsRegCP;
@@ -100,8 +108,9 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
         if (project.currentModule != null) {
             List<URL> compileElements = new ArrayList<>();
+            Collection<String> dependencies = project.moduleRepository.allDependencies(project.currentModule);
 
-            for (String dep : project.moduleRepository.allDependencies(project.currentModule)) {
+            for (String dep : dependencies) {
                 FileObject depFO = project.moduleRepository.findModuleRoot(dep);
 
                 if (depFO == null)
@@ -119,6 +128,23 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             }
 
             compileCP = ClassPathSupport.createClassPath(compileElements.toArray(new URL[0]));
+            List<FileObject> mp = new ArrayList<>();
+            File fakeMPJars = Places.getCacheSubdirectory("org-netbeans-modules-jdk-project-JDKProject-module-path");
+            for (ModuleDescription mod : project.moduleRepository.modules) {
+                if (dependencies.contains(mod.name))
+                    continue;
+                File fakeJar = new File(fakeMPJars, mod.name + ".jar");
+                if (!fakeJar.exists()) {
+                    try (JarOutputStream jos = new JarOutputStream(new FileOutputStream(fakeJar))) {
+                        jos.putNextEntry(new JarEntry("empty"));
+                    } catch (IOException ex) {
+                        Exceptions.printStackTrace(ex);
+                        continue;
+                    }
+                }
+                mp.add(FileUtil.getArchiveRoot(FileUtil.toFileObject(fakeJar)));
+            }
+            moduleCompileCP = ClassPathSupport.createProxyClassPath(compileCP, ClassPathSupport.createClassPath(mp.toArray(new FileObject[0])));
         } else {
             List<PathResourceImplementation> compileElements = new ArrayList<>();
 
@@ -127,6 +153,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             }
             
             compileCP = ClassPathSupport.createClassPath(compileElements);
+            moduleCompileCP = ClassPath.EMPTY;
         }
 
         
@@ -182,6 +209,11 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         return FileUtil.getArchiveRoot(projectDir.toURI().resolve("fake-target.jar").toURL());
     }
 
+    /**
+     * Copied from JavaClassPathConstants, to avoid depending on a new version of it.
+     */
+    private static final String MODULE_COMPILE_PATH = "modules/compile";
+
     @Override
     public ClassPath findClassPath(FileObject file, String type) {
         if (sourceCP.findOwnerRoot(file) != null) {
@@ -191,6 +223,8 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                 return compileCP;
             } else if (ClassPath.SOURCE.equals(type)) {
                 return sourceCP;
+            } else if (MODULE_COMPILE_PATH.equals(type)) {
+                return moduleCompileCP;
             }
         } else {
             if (file.isFolder()) return null;
