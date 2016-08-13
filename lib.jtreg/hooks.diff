@@ -1,7 +1,7 @@
-diff -r 4ae8bc883554 make/build.xml
---- a/make/build.xml	Sun Mar 27 22:15:28 2016 +0200
-+++ b/make/build.xml	Sun Mar 27 22:26:53 2016 +0200
-@@ -92,6 +92,7 @@
+diff -r 7c5161fdc3c8 make/build.xml
+--- a/make/build.xml	Sat Aug 13 23:57:32 2016 +0200
++++ b/make/build.xml	Sun Aug 14 00:03:38 2016 +0200
+@@ -93,6 +93,7 @@
      <patternset id="jtreg.packages">
          <include name="com/sun/javatest/regtest/**"/>
          <include name="com/sun/javatest/diff/**"/>
@@ -9,7 +9,7 @@ diff -r 4ae8bc883554 make/build.xml
      </patternset>
  
      <patternset id="jtreg.jdk11.files">
-@@ -192,7 +193,7 @@
+@@ -173,7 +174,7 @@
              debug="true" debuglevel="source,lines"
              srcdir="${src.classes.dir}"
              destdir="${build.classes.dir}"
@@ -18,13 +18,13 @@ diff -r 4ae8bc883554 make/build.xml
              includeantruntime="true">
              <compilerarg line="-Xlint:all"/>
              <patternset refid="jtreg.packages"/>
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Action.java
---- a/src/share/classes/com/sun/javatest/regtest/Action.java	Sun Mar 27 22:15:28 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/Action.java	Sun Mar 27 22:26:53 2016 +0200
-@@ -308,6 +308,12 @@
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/Action.java
+--- a/src/share/classes/com/sun/javatest/regtest/Action.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/Action.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -306,6 +306,12 @@
       * </pre>
       */
-     protected void startAction() {
+     protected void startAction(boolean initConfig) {
 +        ActionCallBack callBack = script.getCallBack();
 +
 +        if (callBack != null) {
@@ -34,7 +34,7 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Action.java
          String name = getName();
          section = script.getTestResult().createSection(name);
  
-@@ -332,6 +338,12 @@
+@@ -333,6 +339,12 @@
          pw.println(LOG_ELAPSED_TIME + ((double) elapsedTime/1000.0));
          recorder.close();
          section.setStatus(status);
@@ -47,9 +47,9 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Action.java
      } // endAction()
  
      //----------workarounds-------------------------------------------------------
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Sun Mar 27 22:26:53 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Sun Aug 14 00:03:38 2016 +0200
 @@ -0,0 +1,38 @@
 +/*
 + * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
@@ -78,24 +78,24 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/ActionCallBack.j
 +
 +package com.sun.javatest.regtest;
 +
-+import java.util.Collection;
++import java.util.List;
 +
 +public interface ActionCallBack {
 +
 +    public void actionStarted(Action action);
 +
-+    public Collection<? extends String> getAdditionalVMJavaOptions(Action action);
++    public List<String> getAdditionalVMJavaOptions(Action action);
 +
 +    public void actionEnded(Action action);
 +
 +}
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/CompileAction.java
---- a/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sun Mar 27 22:15:28 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sun Mar 27 22:26:53 2016 +0200
-@@ -501,6 +501,12 @@
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/CompileAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/CompileAction.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -509,6 +509,12 @@
          String javacCmd = script.getJavacProg();
  
-         List<String> javacVMOpts = new ArrayList<String>();
+         JDKOpts javacVMOpts = new JDKOpts(script.useLongFormOptions());
 +        ActionCallBack callBack = script.getCallBack();
 +
 +        if (callBack != null) {
@@ -105,10 +105,24 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/CompileAction.ja
          javacVMOpts.addAll(script.getTestVMOptions());
          if (addDebugOpts && script.getCompileJDK().equals(script.getTestJDK()))
              javacVMOpts.addAll(script.getTestDebugOptions());
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Main.java
---- a/src/share/classes/com/sun/javatest/regtest/Main.java	Sun Mar 27 22:15:28 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/Main.java	Sun Mar 27 22:26:53 2016 +0200
-@@ -1050,6 +1050,8 @@
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/JDK.java
+--- a/src/share/classes/com/sun/javatest/regtest/JDK.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/JDK.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -93,6 +93,10 @@
+ 
+     private static final Map<File, JDK> cache = new HashMap<>();
+ 
++    public static synchronized void clearCache() {
++        cache.clear();
++    }
++
+     /**
+      * Creates a JDK object, given its "$JAVA_HOME" path.
+      * @param javaHome the "home" directory for the JDK
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/Main.java
+--- a/src/share/classes/com/sun/javatest/regtest/Main.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/Main.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -1155,6 +1155,8 @@
          return run();
      }
  
@@ -117,7 +131,7 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Main.java
      private int run() throws BadArgs, Fault, Harness.Fault, InterruptedException {
          findSystemJarFiles();
  
-@@ -1102,10 +1104,10 @@
+@@ -1208,10 +1210,10 @@
              Version requiredVersion = ts.getRequiredVersion();
              Version currentVersion = Version.getCurrent();
              if (requiredVersion.compareTo(currentVersion) > 0) {
@@ -132,7 +146,7 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Main.java
              }
          }
  
-@@ -1781,6 +1783,8 @@
+@@ -1877,6 +1879,8 @@
  
              rp.initExprContext(); // will invoke/init jdk.getProperties(params)
  
@@ -141,10 +155,10 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/Main.java
              return rp;
          } catch (TestSuite.Fault f) {
              // TODO: fix bad string -- need more helpful resource here
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/MainAction.java
---- a/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sun Mar 27 22:15:28 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sun Mar 27 22:26:53 2016 +0200
-@@ -413,6 +413,12 @@
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/MainAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/MainAction.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -443,6 +443,12 @@
          javaOpts.addAll(script.getTestVMJavaOptions());
          javaOpts.addAll(script.getTestDebugOptions());
  
@@ -154,14 +168,14 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/MainAction.java
 +            javaOpts.addAll(new ArrayList<String>(callBack.getAdditionalVMJavaOptions(this)));
 +        }
 +
-         Map<String, String> javaProps = new LinkedHashMap<String, String>();
+         Map<String, String> javaProps = new LinkedHashMap<>();
          javaProps.putAll(script.getTestProperties());
  
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionParameters.java
---- a/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sun Mar 27 22:15:28 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sun Mar 27 22:26:53 2016 +0200
-@@ -1110,4 +1110,14 @@
-     private final Set<Integer> retainStatusSet = new HashSet<Integer>(4);
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/RegressionParameters.java
+--- a/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/RegressionParameters.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -1100,4 +1100,14 @@
+     private final Set<Integer> retainStatusSet = new HashSet<>(4);
      private Pattern retainFilesPattern;
  
 +    private ActionCallBack callBack;
@@ -175,10 +189,10 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionParame
 +    }
 +
  }
-diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionScript.java
---- a/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sun Mar 27 22:15:28 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sun Mar 27 22:26:53 2016 +0200
-@@ -993,6 +993,10 @@
+diff -r 7c5161fdc3c8 src/share/classes/com/sun/javatest/regtest/RegressionScript.java
+--- a/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sat Aug 13 23:57:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/RegressionScript.java	Sun Aug 14 00:03:38 2016 +0200
+@@ -1002,6 +1002,10 @@
          return params.getCompileJDK().getJavacProg().getPath();
      }
  
@@ -189,17 +203,3 @@ diff -r 4ae8bc883554 src/share/classes/com/sun/javatest/regtest/RegressionScript
      //--------------------------------------------------------------------------
  
      // Get the standard properties to be set for tests
-diff -r 58c0d0e99a17 src/share/classes/com/sun/javatest/regtest/JDK.java
---- a/src/share/classes/com/sun/javatest/regtest/JDK.java	Wed Jul 06 13:35:18 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/JDK.java	Wed Jul 06 13:38:50 2016 +0200
-@@ -80,6 +80,10 @@
- 
-     private static final Map<File, JDK> cache = new HashMap<File, JDK>();
- 
-+    public static synchronized void clearCache() {
-+        cache.clear();
-+    }
-+
-     private JDK(File jdk) {
-         this.jdk = jdk;
-         absJDK = jdk.getAbsoluteFile();

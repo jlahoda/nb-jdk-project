@@ -54,7 +54,6 @@ import java.io.IOException;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collection;
 import java.util.Collections;
 import java.util.HashSet;
 import java.util.LinkedList;
@@ -223,7 +222,7 @@ public class ActionProviderImpl implements ActionProvider {
                         public void actionStarted(Action action) {
                         }
                         @Override
-                        public Collection<? extends String> getAdditionalVMJavaOptions(Action action) {
+                        public List<String> getAdditionalVMJavaOptions(Action action) {
                             if (!debug) return Collections.emptyList();
 
                             JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
