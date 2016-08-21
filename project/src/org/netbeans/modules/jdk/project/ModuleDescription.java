@@ -48,6 +48,7 @@ import java.io.Reader;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
@@ -56,6 +57,12 @@ import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
+import org.netbeans.api.java.lexer.JavaTokenId;
+import org.netbeans.api.lexer.InputAttributes;
+import org.netbeans.api.lexer.Token;
+import org.netbeans.api.lexer.TokenHierarchy;
+import org.netbeans.api.lexer.TokenSequence;
 import org.openide.filesystems.FileObject;
 import org.openide.xml.XMLUtil;
 import org.w3c.dom.Document;
@@ -160,7 +167,7 @@ public class ModuleDescription {
                     name = childEl.getTextContent();
                     break;
                 case "depend":
-                    depend.add(new Dependency(childEl.getTextContent(), "true".equals(childEl.getAttribute("re-exports"))));
+                    depend.add(new Dependency(childEl.getTextContent(), "true".equals(childEl.getAttribute("re-exports")), false));
                     break;
                 case "export":
                     String exported = null;
@@ -211,43 +218,70 @@ public class ModuleDescription {
     }
 
     private static final Pattern MODULE = Pattern.compile("module\\s+(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
-    private static final Pattern REQUIRES = Pattern.compile("requires\\s+(public\\s+)?(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
+    private static final Pattern REQUIRES = Pattern.compile("requires\\s+((public\\s+|static\\s+)*)(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)\\s*;");
     private static ModuleDescription parseModuleInfo(FileObject f) throws IOException {
         try (Reader r = new InputStreamReader(f.getInputStream())) {
-            StringBuilder content = new StringBuilder();
-            int read;
+            ModuleDescription desc = parseModuleInfo(r);
 
-            while ((read = r.read()) != (-1)) {
-                content.append((char) read);
-            }
-
-            Matcher moduleMatcher = MODULE.matcher(content);
-
-            if (!moduleMatcher.find())
+            if (desc == null || !desc.name.equals(f.getFileObject("../../..").getNameExt()))
                 return null;
 
-            String moduleName = moduleMatcher.group(1);
-
-            if (!moduleName.equals(f.getFileObject("../../..").getNameExt()))
-                return null;
-
-            List<Dependency> depends = new ArrayList<>();
-            boolean hasJavaBaseDependency = false;
-            Matcher requiresMatcher = REQUIRES.matcher(content);
-
-            while (requiresMatcher.find()) {
-                String depName = requiresMatcher.group(2);
-
-                depends.add(new Dependency(depName, requiresMatcher.group(1) != null));
-
-                hasJavaBaseDependency |= depName.equals("java.base");
-            }
-
-            if (!hasJavaBaseDependency)
-                depends.listIterator().add(new Dependency("java.base", false));
-
-            return new ModuleDescription(moduleName, depends, Collections.<String, List<String>>emptyMap());
+            return desc;
         }
+    }
+
+    static ModuleDescription parseModuleInfo(Reader r) throws IOException {
+        TokenHierarchy<Reader> th = TokenHierarchy.create(r,
+                                                          JavaTokenId.language(),
+                                                          EnumSet.of(JavaTokenId.BLOCK_COMMENT, JavaTokenId.ERROR,
+                                                                     JavaTokenId.INVALID_COMMENT_END, JavaTokenId.JAVADOC_COMMENT,
+                                                                     JavaTokenId.LINE_COMMENT, JavaTokenId.STRING_LITERAL),
+                                                          new InputAttributes());
+        TokenSequence<JavaTokenId> ts = th.tokenSequence(JavaTokenId.language());
+
+        ts.moveStart();
+
+        StringBuilder content = new StringBuilder();
+
+        while (ts.moveNext()) {
+            if (ts.token().id() == JavaTokenId.WHITESPACE) {
+                content.append(' ');
+            } else {
+                content.append(ts.token().text());
+            }
+        }
+
+        Matcher moduleMatcher = MODULE.matcher(content);
+
+        if (!moduleMatcher.find())
+            return null;
+
+        String moduleName = moduleMatcher.group(1);
+
+
+        List<Dependency> depends = new ArrayList<>();
+        boolean hasJavaBaseDependency = false;
+        Matcher requiresMatcher = REQUIRES.matcher(content);
+
+        while (requiresMatcher.find()) {
+            String depName = requiresMatcher.group(3);
+            boolean isPublic = false;
+            boolean isStatic = false;
+
+            if (requiresMatcher.group(1) != null) {
+                isPublic = requiresMatcher.group(1).contains("public");
+                isStatic = requiresMatcher.group(1).contains("static");
+            }
+
+            depends.add(new Dependency(depName, isPublic, isStatic));
+
+            hasJavaBaseDependency |= depName.equals("java.base");
+        }
+
+        if (!hasJavaBaseDependency)
+            depends.listIterator().add(new Dependency("java.base", false, false));
+
+        return new ModuleDescription(moduleName, depends, Collections.<String, List<String>>emptyMap());
     }
 
     public static class ModuleRepository {
@@ -317,10 +351,12 @@ public class ModuleDescription {
     public static final class Dependency {
         public final String moduleName;
         public final boolean requiresPublic;
+        public final boolean requiresStatic;
 
-        public Dependency(String moduleName, boolean requiresPublic) {
+        public Dependency(String moduleName, boolean requiresPublic, boolean requiresStatic) {
             this.moduleName = moduleName;
             this.requiresPublic = requiresPublic;
+            this.requiresStatic = requiresStatic;
         }
 
     }
