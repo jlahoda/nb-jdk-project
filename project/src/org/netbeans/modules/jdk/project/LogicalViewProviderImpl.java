@@ -41,10 +41,18 @@
  */
 package org.netbeans.modules.jdk.project;
 
+import java.awt.Image;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Objects;
+import java.util.Set;
+
 import javax.swing.Action;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+
 import org.netbeans.api.annotations.common.NonNull;
 import org.netbeans.api.java.project.JavaProjectConstants;
 import org.netbeans.api.project.FileOwnerQuery;
@@ -57,10 +65,14 @@ import org.netbeans.spi.project.ui.LogicalViewProvider;
 import org.netbeans.spi.project.ui.support.CommonProjectActions;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.loaders.DataObject;
+import org.openide.loaders.DataObjectNotFoundException;
 import org.openide.nodes.AbstractNode;
 import org.openide.nodes.ChildFactory;
 import org.openide.nodes.Children;
+import org.openide.nodes.FilterNode;
 import org.openide.nodes.Node;
+import org.openide.util.ImageUtilities;
 import org.openide.util.WeakListeners;
 import org.openide.util.lookup.Lookups;
 
@@ -151,7 +163,7 @@ public class LogicalViewProviderImpl implements LogicalViewProvider  {
 
     }
 
-    private static final class RootChildFactory extends ChildFactory<Object> implements ChangeListener {
+    private static final class RootChildFactory extends ChildFactory<RootChildFactory.Key> implements ChangeListener {
 
         private final Sources sources;
 
@@ -161,21 +173,48 @@ public class LogicalViewProviderImpl implements LogicalViewProvider  {
         }
 
         @Override
-        protected boolean createKeys(List<Object> toPopulate) {
-            for (SourceGroup src : sources.getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA)) {
-                toPopulate.add(src);
+        protected boolean createKeys(List<Key> toPopulate) {
+            Set<SourceGroup> javaSourceGroups = Collections.newSetFromMap(new IdentityHashMap<SourceGroup, Boolean>());
+
+            javaSourceGroups.addAll(Arrays.asList(sources.getSourceGroups(JavaProjectConstants.SOURCES_TYPE_JAVA)));
+
+            for (SourceGroup sg : sources.getSourceGroups(SourcesImpl.SOURCES_TYPE_JDK_PROJECT)) {
+                if (javaSourceGroups.contains(sg)) {
+                    toPopulate.add(new Key(sg) {
+                        @Override public Node createNode() {
+                            return PackageView.createPackageView(group);
+                        }
+                    });
+                } else {
+                    toPopulate.add(new Key(sg) {
+                        @Override public Node createNode() {
+                            try {
+                                DataObject od = DataObject.find(group.getRootFolder());
+                                return new FilterNode(od.getNodeDelegate()) {
+                                    @Override public Image getIcon(int type) {
+                                        return ImageUtilities.loadImage("org/netbeans/modules/jdk/project/resources/nativeFilesFolder.gif");
+                                    }
+                                    @Override public Image getOpenedIcon(int type) {
+                                        return ImageUtilities.loadImage("org/netbeans/modules/jdk/project/resources/nativeFilesFolderOpened.gif");
+                                    }
+                                    @Override public String getDisplayName() {
+                                        return group.getDisplayName();
+                                    }
+                                };
+                            } catch (DataObjectNotFoundException ex) {
+                                return Node.EMPTY;
+                            }
+                        }
+                    });
+                }
             }
 
             return true;
         }
 
         @Override
-        protected Node createNodeForKey(Object key) {
-            if (key instanceof SourceGroup) {
-                return PackageView.createPackageView((SourceGroup) key);
-            }
-
-            throw new IllegalStateException();
+        protected Node createNodeForKey(Key key) {
+            return key.createNode();
         }
 
         @Override
@@ -183,5 +222,40 @@ public class LogicalViewProviderImpl implements LogicalViewProvider  {
             refresh(false);
         }
 
+        private static abstract class Key {
+            public final SourceGroup group;
+
+            public Key(SourceGroup group) {
+                this.group = group;
+            }
+
+            public abstract Node createNode();
+
+            @Override
+            public int hashCode() {
+                int hash = 7;
+                hash = 53 * hash + Objects.hashCode(this.group);
+                return hash;
+            }
+
+            @Override
+            public boolean equals(Object obj) {
+                if (this == obj) {
+                    return true;
+                }
+                if (obj == null) {
+                    return false;
+                }
+                if (getClass() != obj.getClass()) {
+                    return false;
+                }
+                final Key other = (Key) obj;
+                if (!Objects.equals(this.group, other.group)) {
+                    return false;
+                }
+                return true;
+            }
+            
+        }
     }
 }

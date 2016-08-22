@@ -57,8 +57,10 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+
 import javax.swing.Icon;
 import javax.swing.event.ChangeListener;
+
 import org.netbeans.api.annotations.common.NullAllowed;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectInformation;
@@ -68,6 +70,7 @@ import org.netbeans.modules.jdk.project.ModuleDescription.ModuleRepository;
 import org.netbeans.spi.project.ProjectConfigurationProvider;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
+import org.netbeans.spi.project.support.LookupProviderSupport;
 import org.netbeans.spi.project.support.ant.PropertyEvaluator;
 import org.netbeans.spi.project.support.ant.PropertyProvider;
 import org.netbeans.spi.project.support.ant.PropertyUtils;
@@ -163,6 +166,7 @@ public class JDKProject implements Project {
         this.roots = new ArrayList<>(configuration.mainSourceRoots.size());
         
         addRoots(RootKind.MAIN_SOURCES, configuration.mainSourceRoots);
+        addRoots(RootKind.NATIVE_SOURCES, configuration.nativeSourceRoots);
         addRoots(RootKind.TEST_SOURCES, configuration.testSourceRoots);
 
         URL fakeOutputURL;
@@ -200,7 +204,8 @@ public class JDKProject implements Project {
         }
 
         ClassPathProviderImpl cpp = new ClassPathProviderImpl(this);
-        this.lookup = Lookups.fixed(cpp,
+
+        Lookup base = Lookups.fixed(cpp,
                                     new OpenProjectHookImpl(cpp),
                                     new SourcesImpl(this),
                                     new LogicalViewProviderImpl(this),
@@ -209,7 +214,9 @@ public class JDKProject implements Project {
                                     new ProjectInformationImpl(),
                                     configurations,
                                     new SubProjectProviderImpl(this),
-                                    new ActionProviderImpl(this));
+                                    new ActionProviderImpl(this),
+                                    this);
+        this.lookup = LookupProviderSupport.createCompositeLookup(base, "Projects/org-netbeans-modules-jdk-project-JDKProject/Lookup");
     }
 
     private void addRoots(RootKind kind, Iterable<Pair<String, String>> rootSpecifications) {
@@ -300,15 +307,18 @@ public class JDKProject implements Project {
     
     public enum RootKind {
         MAIN_SOURCES,
+        NATIVE_SOURCES,
         TEST_SOURCES;
     }
 
     private static final class Configuration {
         public final List<Pair<String, String>> mainSourceRoots;
+        private final List<Pair<String, String>> nativeSourceRoots;
         public final List<Pair<String, String>> testSourceRoots;
 
-        public Configuration(List<Pair<String, String>> mainSourceRoots, List<Pair<String, String>> testSourceRoots) {
+        public Configuration(List<Pair<String, String>> mainSourceRoots, List<Pair<String, String>> nativeSourceRoots, List<Pair<String, String>> testSourceRoots) {
             this.mainSourceRoots = mainSourceRoots;
+            this.nativeSourceRoots = nativeSourceRoots;
             this.testSourceRoots = testSourceRoots;
         }
     }
@@ -319,6 +329,7 @@ public class JDKProject implements Project {
                           Pair.<String, String>of("${basedir}/src/${legacy-os}/classes/", null),
                           Pair.<String, String>of("${outputRoot}/jdk/gensrc/", null),
                           Pair.<String, String>of("${outputRoot}/jdk/impsrc/", null)),
+            Arrays.<Pair<String, String>>asList(),
             Arrays.asList(Pair.<String, String>of("${basedir}/test", null))
     );
 
@@ -329,6 +340,7 @@ public class JDKProject implements Project {
                           Pair.<String, String>of("${basedir}/src/closed/${legacy-os}/classes/", null),
                           Pair.<String, String>of("${outputRoot}/jdk/gensrc/", null),
                           Pair.<String, String>of("${outputRoot}/jdk/impsrc/", null)),
+            Arrays.<Pair<String, String>>asList(),
             Arrays.asList(Pair.<String, String>of("${basedir}/test", null))
     );
 
@@ -341,6 +353,10 @@ public class JDKProject implements Project {
                           Pair.<String, String>of("${basedir}/../closed/${module}/${generalized-os}/classes/", null),
                           Pair.<String, String>of("${outputRoot}/jdk/gensrc/${module}/", null),
                           Pair.<String, String>of("${outputRoot}/support/gensrc/${module}/", null)),
+            Arrays.asList(Pair.<String, String>of("${basedir}/share/native/", null),
+                          Pair.<String, String>of("${basedir}/${os}/native/", null),
+                          Pair.<String, String>of("${basedir}/${generalized-os}/native/", null),
+                          Pair.<String, String>of("${outputRoot}/support/headers/${module}/", null)),
             Arrays.<Pair<String, String>>asList()
     );
 

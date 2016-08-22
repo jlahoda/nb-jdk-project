@@ -51,17 +51,21 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Map.Entry;
 import java.util.Set;
 import java.util.regex.Pattern;
+
 import javax.swing.Icon;
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
+
 import org.netbeans.api.java.project.JavaProjectConstants;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.SourceGroup;
 import org.netbeans.api.project.Sources;
 import static org.netbeans.api.project.Sources.TYPE_GENERIC;
 import org.netbeans.modules.jdk.project.JDKProject.Root;
+import org.netbeans.modules.jdk.project.JDKProject.RootKind;
 import org.netbeans.spi.project.support.GenericSources;
 import org.openide.filesystems.FileAttributeEvent;
 import org.openide.filesystems.FileChangeListener;
@@ -80,6 +84,8 @@ import org.openide.util.Utilities;
  */
 public class SourcesImpl implements Sources, FileChangeListener, ChangeListener {
 
+    public static final String SOURCES_TYPE_JDK_PROJECT = "jdk-project-sources";
+
     private final ChangeSupport cs = new ChangeSupport(this);
     private final JDKProject project;
     private final Map<Root, SourceGroup> root2SourceGroup = new HashMap<Root, SourceGroup>();
@@ -93,7 +99,7 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
     }
 
     private boolean initialized;
-    private final List<SourceGroup> genericSourceGroups = new ArrayList<>();
+    private final Map<String, List<SourceGroup>> key2SourceGroups = new HashMap<>();
     
     @Override
     public synchronized SourceGroup[] getSourceGroups(String type) {
@@ -102,20 +108,9 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
             initialized = true;
         }
         
-        if (TYPE_GENERIC.equals(type)) {
-            return genericSourceGroups.toArray(new SourceGroup[0]);
-        }
-        if (JavaProjectConstants.SOURCES_TYPE_JAVA.equals(type)) {
-            List<SourceGroup> sourceGroups = new ArrayList<SourceGroup>();
-
-            for (Root root : project.getRoots()) {
-                SourceGroup sg = root2SourceGroup.get(root);
-                if (sg != null)
-                    sourceGroups.add(sg);
-            }
-
-            return sourceGroups.toArray(new SourceGroup[0]);
-        }
+        List<SourceGroup> groups = key2SourceGroups.get(type);
+        if (groups != null)
+            return groups.toArray(new SourceGroup[0]);
 
         return new SourceGroup[0];
     }
@@ -123,8 +118,12 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
     private final Set<File> seen = new HashSet<>();
     
     private synchronized void recompute() {
-        genericSourceGroups.clear();
-        genericSourceGroups.addAll(Arrays.asList(GenericSources.genericOnly(project).getSourceGroups(TYPE_GENERIC)));
+        key2SourceGroups.clear();
+
+        for (SourceGroup sg : GenericSources.genericOnly(project).getSourceGroups(TYPE_GENERIC)) {
+            addSourceGroup(TYPE_GENERIC, sg);
+        }
+
         Set<File> newFiles = new HashSet<>();
         for (Root root : project.getRoots()) {
             URL srcURL = root.getLocation();
@@ -141,11 +140,22 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
             if (src == null) {
                 root2SourceGroup.remove(root);
             } else {
-                if (!root2SourceGroup.containsKey(root)) {
-                    root2SourceGroup.put(root, new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes));
+                SourceGroup sg = root2SourceGroup.get(root);
+
+                if (sg == null) {
+                    sg = new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes);
+
+                    root2SourceGroup.put(root, sg);
                 }
+
+                if (root.kind != RootKind.NATIVE_SOURCES) {
+                    addSourceGroup(JavaProjectConstants.SOURCES_TYPE_JAVA, sg);
+                }
+
+                addSourceGroup(SOURCES_TYPE_JDK_PROJECT, sg);
+
                 if (!FileUtil.isParentOf(project.getProjectDirectory(), src)) {
-                    genericSourceGroups.add(GenericSources.group(project, src, root.displayName, root.displayName, null, null));
+                    addSourceGroup(TYPE_GENERIC, GenericSources.group(project, src, root.displayName, root.displayName, null, null));
                 }
             }
         }
@@ -165,6 +175,16 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
         seen.removeAll(removed);
         seen.addAll(added);
         cs.fireChange();
+    }
+
+    private void addSourceGroup(String type, SourceGroup sg) {
+        List<SourceGroup> groups = key2SourceGroups.get(type);
+
+        if (groups == null) {
+            key2SourceGroups.put(type, groups = new ArrayList<>());
+        }
+
+        groups.add(sg);
     }
 
     @Override public void addChangeListener(ChangeListener listener) {

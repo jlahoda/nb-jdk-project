@@ -163,7 +163,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
         for (Root root : project.getRoots()) {
             if (root.kind == RootKind.MAIN_SOURCES) {
                 sourceRoots.add(new PathResourceImpl(root));
-            } else {
+            } else if (root.kind == RootKind.TEST_SOURCES) {
                 testsRegRoots.add(new PathResourceImpl(root));
             }
         }
