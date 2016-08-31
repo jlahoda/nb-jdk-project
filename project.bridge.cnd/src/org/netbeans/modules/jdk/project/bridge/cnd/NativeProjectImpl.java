@@ -562,7 +562,7 @@ public class NativeProjectImpl implements NativeProject {
                         registryClazz.getMethod("unregister", NativeProject.class, boolean.class).invoke(registry, nativePrj, false);
                     } catch (ReflectiveOperationException ex) {
                         try {
-                            registryClazz.getMethod("unregister", NativeProject.class, boolean.class).invoke(registry, nativePrj);
+                            registryClazz.getMethod("unregister", NativeProject.class).invoke(registry, nativePrj);
                             LOG.log(Level.SEVERE, null, ex);
                         } catch (ReflectiveOperationException ex1) {
                             ex1.addSuppressed(ex);
