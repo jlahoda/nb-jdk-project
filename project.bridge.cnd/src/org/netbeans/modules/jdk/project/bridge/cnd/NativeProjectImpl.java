@@ -45,6 +45,7 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -101,6 +102,8 @@ import org.openide.util.Utilities;
  */
 public class NativeProjectImpl implements NativeProject {
 
+    private static final Logger LOG = Logger.getLogger(NativeProjectImpl.class.getName());
+
     private final JDKProject project;
     private final FileObject jdkRoot;
     private final List<NativeProjectItemsListener> listeners = new ArrayList<>();
@@ -114,8 +117,19 @@ public class NativeProjectImpl implements NativeProject {
         for (String path : DefaultSystemSettings.getDefault().getSystemIncludes(Language.C, this)) {
             FileObject fo = FileUtil.toFileObject(new File(path));
             if (fo != null)
-                systemIncludes.add(FSPath.toFSPath(fo));
+                systemIncludes.add(createFSPathOrIncludePath(fo));
         }
+    }
+
+    private Object createFSPathOrIncludePath(FileObject fo) {
+        FSPath p = FSPath.toFSPath(fo);
+        try {
+            Class<?> includePath = Class.forName("org.netbeans.modules.cnd.api.project.IncludePath", false, NativeProjectImpl.class.getClassLoader());
+            return includePath.getConstructor(FSPath.class).newInstance(p);
+        } catch (ReflectiveOperationException ex) {
+            LOG.log(Level.FINE, null, ex);
+        }
+        return p;
     }
 
     @Override
@@ -149,7 +163,7 @@ public class NativeProjectImpl implements NativeProject {
 
     private List<String> sourceRoots = Collections.emptyList();
     private final Map<FileObject, NativeFileItem> file2Item = new ConcurrentHashMap<>();
-    private List<FSPath> includes = Collections.emptyList();
+    private List includes = Collections.emptyList();
     private List<String> macros = Collections.emptyList();
 
     private boolean initialized;
@@ -208,7 +222,7 @@ public class NativeProjectImpl implements NativeProject {
         try {
             Map<FileObject, NativeFileItem> removedItems = new HashMap<>(file2Item);
             Set<NativeFileItem> addedItems = new HashSet<>();
-            Set<FSPath> newIncludes = new LinkedHashSet<>();
+            Set newIncludes = new LinkedHashSet<>();
             List<String> newMacros = new ArrayList<>();
             List<String> newSourceRoots = new ArrayList<>();
 
@@ -259,7 +273,7 @@ public class NativeProjectImpl implements NativeProject {
                         }
 
                         if (item.getLanguage() == Language.C_HEADER) {
-                            newIncludes.add(FSPath.toFSPath(child.getParent()));
+                            newIncludes.add(createFSPathOrIncludePath(child.getParent()));
                         }
                     }
                 }
@@ -299,7 +313,7 @@ public class NativeProjectImpl implements NativeProject {
                                     }
                                     FileObject includeDirFO = FileUtil.toFileObject(includeDirFile);
                                     if (includeDirFO != null)
-                                        newIncludes.add(FSPath.toFSPath(includeDirFO));
+                                        newIncludes.add(createFSPathOrIncludePath(includeDirFO));
                                 } else if (part.startsWith("-D")) {
                                     newMacros.add(part.substring(2));
                                 }
@@ -320,7 +334,7 @@ public class NativeProjectImpl implements NativeProject {
             }
 
             synchronized (this) {
-                List<FSPath> includesList = new ArrayList<>(newIncludes);
+                List includesList = new ArrayList<>(newIncludes);
 
                 if (!equalsFSPathLists(includes, includesList) || !Objects.equals(newMacros, macros)) {
                     includes = includesList;
@@ -385,20 +399,20 @@ public class NativeProjectImpl implements NativeProject {
         return file2Item.get(fileObject);
     }
 
-    private final List<FSPath> systemIncludes;
+    private final List<Object> systemIncludes;
 
     @Override
-    public List<FSPath> getSystemIncludePaths() {
+    public List getSystemIncludePaths() {
         return systemIncludes;
     }
 
     @Override
-    public List<FSPath> getUserIncludePaths() {
+    public List getUserIncludePaths() {
         return includes;
     }
 
     @Override
-    public List<String> getIncludeFiles() {
+    public List getIncludeFiles() {
         return Collections.emptyList();
     }
 
@@ -410,6 +424,10 @@ public class NativeProjectImpl implements NativeProject {
     @Override
     public List<String> getUserMacroDefinitions() {
         return macros;
+    }
+
+    public List<FSPath> getSystemIncludeHeaders() {
+        return Collections.emptyList();
     }
 
     @Override
@@ -460,17 +478,21 @@ public class NativeProjectImpl implements NativeProject {
         }
 
         @Override
-        public List<FSPath> getSystemIncludePaths() {
+        public List getSystemIncludePaths() {
             return project.getSystemIncludePaths();
         }
 
         @Override
-        public List<FSPath> getUserIncludePaths() {
+        public List getUserIncludePaths() {
             return project.getUserIncludePaths();
         }
 
         @Override
-        public List<String> getIncludeFiles() {
+        public List getIncludeFiles() {
+            return Collections.emptyList();
+        }
+
+        public List<FSPath> getSystemIncludeHeaders() {
             return Collections.emptyList();
         }
 
@@ -534,7 +556,21 @@ public class NativeProjectImpl implements NativeProject {
                 NativeProject nativePrj = prj.getLookup().lookup(NativeProject.class);
 
                 if (nativePrj != null) {
-                    NativeProjectRegistry.getDefault().unregister(nativePrj);
+                    NativeProjectRegistry registry = NativeProjectRegistry.getDefault();
+                    Class<? extends NativeProjectRegistry> registryClazz = registry.getClass();
+                    try {
+                        registryClazz.getMethod("unregister", NativeProject.class, boolean.class).invoke(registry, nativePrj, false);
+                    } catch (ReflectiveOperationException ex) {
+                        try {
+                            registryClazz.getMethod("unregister", NativeProject.class, boolean.class).invoke(registry, nativePrj);
+                            LOG.log(Level.SEVERE, null, ex);
+                        } catch (ReflectiveOperationException ex1) {
+                            ex1.addSuppressed(ex);
+                            Exceptions.printStackTrace(ex1);
+                        }
+                    }
+                    //was:
+//                    NativeProjectRegistry.getDefault().unregister(nativePrj);
                 }
             }
         };

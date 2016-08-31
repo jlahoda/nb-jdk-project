@@ -3,5 +3,5 @@ AutoUpdate-Show-In-Client: false
 OpenIDE-Module: org.netbeans.modules.jdk.project.bridge.cnd/1
 OpenIDE-Module-Install: org/netbeans/modules/jdk/project/bridge/cnd/Installer.class
 OpenIDE-Module-Localizing-Bundle: org/netbeans/modules/jdk/project/bridge/cnd/Bundle.properties
-OpenIDE-Module-Specification-Version: 1.0
+OpenIDE-Module-Specification-Version: 1.1
 
