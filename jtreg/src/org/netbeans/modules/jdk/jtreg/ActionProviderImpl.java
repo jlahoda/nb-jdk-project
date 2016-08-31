@@ -48,9 +48,11 @@ import com.sun.javatest.regtest.BadArgs;
 import com.sun.javatest.regtest.JDK;
 import com.sun.javatest.regtest.Main;
 import com.sun.javatest.regtest.Main.Fault;
+
 import java.awt.event.ActionEvent;
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -66,9 +68,11 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+
 import javax.swing.AbstractAction;
 import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
+
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
@@ -88,6 +92,7 @@ import org.openide.filesystems.FileUtil;
 import org.openide.text.Line;
 import org.openide.text.Line.ShowOpenType;
 import org.openide.text.Line.ShowVisibilityType;
+import org.openide.util.EditableProperties;
 import org.openide.util.Exceptions;
 import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
@@ -254,11 +259,17 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add("-javacoptions:-g");
                     if (hasXPatch(file)) {
                         if (!fullBuild(file)) {
+                            boolean newStyleXPatch = newStyleXPatch(file);
                             File buildClasses = builtClassesDirsForXOverride(file);
                             File[] modules = buildClasses != null ? buildClasses.listFiles() : null;
                             if (modules != null) {
                                 for (File module : modules) {
-                                    options.add("-Xpatch:" + module.getName() + "=" + module.getAbsolutePath());
+                                    if (newStyleXPatch) {
+                                        options.add("--patch-module");
+                                        options.add(module.getName() + "=" + module.getAbsolutePath());
+                                    } else {
+                                        options.add("-Xpatch:" + module.getName() + "=" + module.getAbsolutePath());
+                                    }
                                 }
                             }
                         }
@@ -360,6 +371,23 @@ public class ActionProviderImpl implements ActionProvider {
         FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
 
         return possibleJDKRoot.getFileObject("jdk/src/java.base/share/classes/module-info.java") != null;
+    }
+
+    private static boolean newStyleXPatch(FileObject testFile) {
+        Project prj = FileOwnerQuery.getOwner(testFile);
+        FileObject testRoot = prj.getProjectDirectory().getFileObject("../../test/TEST.ROOT");
+
+        if (testRoot == null)
+            return false;
+
+        try (InputStream in = testRoot.getInputStream()) {
+            EditableProperties ep = new EditableProperties(true);
+            ep.load(in);
+            return "true".equals(ep.get("useNewOptions"));
+        } catch (IOException ex) {
+            Logger.getLogger(ActionProviderImpl.class.getName()).log(Level.FINE, null, ex);
+            return false;
+        }
     }
 
     static File findTargetJavaHome(FileObject testFile) {
