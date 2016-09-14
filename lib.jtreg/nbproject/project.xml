@@ -54,6 +54,9 @@
                 <package>com.sun.javatest.moreInfo</package>
                 <package>com.sun.javatest.mrep</package>
                 <package>com.sun.javatest.regtest</package>
+                <package>com.sun.javatest.regtest.config</package>
+                <package>com.sun.javatest.regtest.exec</package>
+                <package>com.sun.javatest.regtest.tool</package>
                 <package>com.sun.javatest.report</package>
                 <package>com.sun.javatest.services</package>
                 <package>com.sun.javatest.servlets</package>

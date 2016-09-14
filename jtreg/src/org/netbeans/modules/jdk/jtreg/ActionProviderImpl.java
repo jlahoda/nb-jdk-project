@@ -42,12 +42,12 @@
 package org.netbeans.modules.jdk.jtreg;
 
 import com.sun.javatest.Harness;
-import com.sun.javatest.regtest.Action;
 import com.sun.javatest.regtest.ActionCallBack;
 import com.sun.javatest.regtest.BadArgs;
-import com.sun.javatest.regtest.JDK;
-import com.sun.javatest.regtest.Main;
 import com.sun.javatest.regtest.Main.Fault;
+import com.sun.javatest.regtest.config.JDK;
+import com.sun.javatest.regtest.exec.Action;
+import com.sun.javatest.regtest.tool.Tool;
 
 import java.awt.event.ActionEvent;
 import java.io.File;
@@ -222,7 +222,7 @@ public class ActionProviderImpl implements ActionProvider {
                     ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
                     ClassPath extraSourcePath = allSources(file);
                     final ClassPath fullSourcePath = ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath);
-                    Main.callBack = new ActionCallBack() {
+                    Tool.callBack = new ActionCallBack() {
                         @Override
                         public void actionStarted(Action action) {
                         }
@@ -282,7 +282,7 @@ public class ActionProviderImpl implements ActionProvider {
                         JDK.clearCache();
                         PrintWriter outW = new PrintWriter(io.getOut());
                         PrintWriter errW = new PrintWriter(io.getErr());
-                        new Main(outW, errW).run(options.toArray(new String[options.size()]));
+                        new Tool(outW, errW).run(options.toArray(new String[options.size()]));
                         outW.flush();
                         errW.flush();
                         success = true;
