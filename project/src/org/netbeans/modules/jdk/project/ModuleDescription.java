@@ -46,11 +46,13 @@ import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumSet;
 import java.util.Enumeration;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -219,6 +221,7 @@ public class ModuleDescription {
 
     private static final Pattern MODULE = Pattern.compile("module\\s+(?<modulename>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
     private static final Pattern REQUIRES = Pattern.compile("requires\\s+(?<flags>(transitive\\s+|public\\s+|static\\s+)*)(?<dependency>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)\\s*;");
+    private static final Pattern EXPORTS = Pattern.compile("exports\\s+([^;]*?\\\\s+)?(?<package>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)(\\s+to\\s+(?<to>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+(\\s*,\\s*([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)*))?\\s*;");
     private static ModuleDescription parseModuleInfo(FileObject f) throws IOException {
         try (Reader r = new InputStreamReader(f.getInputStream())) {
             ModuleDescription desc = parseModuleInfo(r);
@@ -281,7 +284,19 @@ public class ModuleDescription {
         if (!hasJavaBaseDependency)
             depends.listIterator().add(new Dependency("java.base", false, false));
 
-        return new ModuleDescription(moduleName, depends, Collections.<String, List<String>>emptyMap());
+        Map<String, List<String>> exports = new LinkedHashMap<>();
+        Matcher exportsMatcher = EXPORTS.matcher(content);
+
+        while (exportsMatcher.find()) {
+            String pack = exportsMatcher.group("package");
+            String to   = exportsMatcher.group("to");
+
+            List<String> toModule = to != null ? Arrays.asList(to.split("\\s*,\\s*")) : null;
+
+            exports.put(pack, toModule);
+        }
+
+        return new ModuleDescription(moduleName, depends, exports);
     }
 
     public static class ModuleRepository {

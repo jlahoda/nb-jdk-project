@@ -215,6 +215,7 @@ public class JDKProject implements Project {
                                     configurations,
                                     new SubProjectProviderImpl(this),
                                     new ActionProviderImpl(this),
+                                    new AccessibilityQueryImpl(currentModule),
                                     this);
         this.lookup = LookupProviderSupport.createCompositeLookup(base, "Projects/org-netbeans-modules-jdk-project-JDKProject/Lookup");
     }
