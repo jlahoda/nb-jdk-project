@@ -217,8 +217,8 @@ public class ModuleDescription {
         return result;
     }
 
-    private static final Pattern MODULE = Pattern.compile("module\\s+(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
-    private static final Pattern REQUIRES = Pattern.compile("requires\\s+((public\\s+|static\\s+)*)(([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)\\s*;");
+    private static final Pattern MODULE = Pattern.compile("module\\s+(?<modulename>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
+    private static final Pattern REQUIRES = Pattern.compile("requires\\s+(?<flags>(transitive\\s+|public\\s+|static\\s+)*)(?<dependency>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)\\s*;");
     private static ModuleDescription parseModuleInfo(FileObject f) throws IOException {
         try (Reader r = new InputStreamReader(f.getInputStream())) {
             ModuleDescription desc = parseModuleInfo(r);
@@ -256,21 +256,21 @@ public class ModuleDescription {
         if (!moduleMatcher.find())
             return null;
 
-        String moduleName = moduleMatcher.group(1);
-
+        String moduleName = moduleMatcher.group("modulename");
 
         List<Dependency> depends = new ArrayList<>();
         boolean hasJavaBaseDependency = false;
         Matcher requiresMatcher = REQUIRES.matcher(content);
 
         while (requiresMatcher.find()) {
-            String depName = requiresMatcher.group(3);
+            String depName = requiresMatcher.group("dependency");
             boolean isPublic = false;
             boolean isStatic = false;
+            String flags = requiresMatcher.group("flags");
 
-            if (requiresMatcher.group(1) != null) {
-                isPublic = requiresMatcher.group(1).contains("public");
-                isStatic = requiresMatcher.group(1).contains("static");
+            if (flags != null) {
+                isPublic = flags.contains("transitive") || flags.contains("public");
+                isStatic = flags.contains("static");
             }
 
             depends.add(new Dependency(depName, isPublic, isStatic));

@@ -93,6 +93,14 @@ public class ModuleDescriptionTest {
         d = ModuleDescription.parseModuleInfo(new StringReader("/* module wrong { requires wrong; } */ module right { requires right.right; }"));
 
         assertEquals(d, new ModuleDescription("right", Arrays.asList(new Dependency("java.base", false, false), new Dependency("right.right", false, false)), Collections.<String, List<String>>emptyMap()));
+
+        d = ModuleDescription.parseModuleInfo(new StringReader("/* module wrong { requires wrong; } */ module right { requires transitive right.right; }"));
+
+        assertEquals(d, new ModuleDescription("right", Arrays.asList(new Dependency("java.base", false, false), new Dependency("right.right", true, false)), Collections.<String, List<String>>emptyMap()));
+
+        d = ModuleDescription.parseModuleInfo(new StringReader("/* module wrong { requires wrong; } */ module right { requires transitive static right.right; }"));
+
+        assertEquals(d, new ModuleDescription("right", Arrays.asList(new Dependency("java.base", false, false), new Dependency("right.right", true, true)), Collections.<String, List<String>>emptyMap()));
     }
 
     private static void assertEquals(ModuleDescription d1, ModuleDescription d2) {
