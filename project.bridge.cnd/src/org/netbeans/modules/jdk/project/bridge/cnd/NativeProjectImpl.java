@@ -45,7 +45,6 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
-import java.lang.reflect.InvocationTargetException;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -64,10 +63,12 @@ import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectUtils;
 import org.netbeans.modules.cnd.api.project.DefaultSystemSettings;
+import org.netbeans.modules.cnd.api.project.IncludePath;
 import org.netbeans.modules.cnd.api.project.NativeFileItem;
 import org.netbeans.modules.cnd.api.project.NativeFileItem.Language;
 import org.netbeans.modules.cnd.api.project.NativeProject;
@@ -117,19 +118,8 @@ public class NativeProjectImpl implements NativeProject {
         for (String path : DefaultSystemSettings.getDefault().getSystemIncludes(Language.C, this)) {
             FileObject fo = FileUtil.toFileObject(new File(path));
             if (fo != null)
-                systemIncludes.add(createFSPathOrIncludePath(fo));
+                systemIncludes.add(new IncludePath(FSPath.toFSPath(fo)));
         }
-    }
-
-    private Object createFSPathOrIncludePath(FileObject fo) {
-        FSPath p = FSPath.toFSPath(fo);
-        try {
-            Class<?> includePath = Class.forName("org.netbeans.modules.cnd.api.project.IncludePath", false, NativeProjectImpl.class.getClassLoader());
-            return includePath.getConstructor(FSPath.class).newInstance(p);
-        } catch (ReflectiveOperationException ex) {
-            LOG.log(Level.FINE, null, ex);
-        }
-        return p;
     }
 
     @Override
@@ -163,7 +153,7 @@ public class NativeProjectImpl implements NativeProject {
 
     private List<String> sourceRoots = Collections.emptyList();
     private final Map<FileObject, NativeFileItem> file2Item = new ConcurrentHashMap<>();
-    private List includes = Collections.emptyList();
+    private List<IncludePath> includes = Collections.emptyList();
     private List<String> macros = Collections.emptyList();
 
     private boolean initialized;
@@ -222,7 +212,7 @@ public class NativeProjectImpl implements NativeProject {
         try {
             Map<FileObject, NativeFileItem> removedItems = new HashMap<>(file2Item);
             Set<NativeFileItem> addedItems = new HashSet<>();
-            Set newIncludes = new LinkedHashSet<>();
+            Set<FSPath> newIncludes = new LinkedHashSet<>();
             List<String> newMacros = new ArrayList<>();
             List<String> newSourceRoots = new ArrayList<>();
 
@@ -273,7 +263,7 @@ public class NativeProjectImpl implements NativeProject {
                         }
 
                         if (item.getLanguage() == Language.C_HEADER) {
-                            newIncludes.add(createFSPathOrIncludePath(child.getParent()));
+                            newIncludes.add(FSPath.toFSPath(child.getParent()));
                         }
                     }
                 }
@@ -313,7 +303,7 @@ public class NativeProjectImpl implements NativeProject {
                                     }
                                     FileObject includeDirFO = FileUtil.toFileObject(includeDirFile);
                                     if (includeDirFO != null)
-                                        newIncludes.add(createFSPathOrIncludePath(includeDirFO));
+                                        newIncludes.add(FSPath.toFSPath(includeDirFO));
                                 } else if (part.startsWith("-D")) {
                                     newMacros.add(part.substring(2));
                                 }
@@ -334,9 +324,11 @@ public class NativeProjectImpl implements NativeProject {
             }
 
             synchronized (this) {
-                List includesList = new ArrayList<>(newIncludes);
+                List<IncludePath> includesList = newIncludes.stream()
+                                                            .map(IncludePath :: new)
+                                                            .collect(Collectors.toList());
 
-                if (!equalsFSPathLists(includes, includesList) || !Objects.equals(newMacros, macros)) {
+                if (!equalsIncludePathLists(includes, includesList) || !Objects.equals(newMacros, macros)) {
                     includes = includesList;
                     macros = newMacros;
                     for (NativeProjectItemsListener l : listeners) {
@@ -353,16 +345,17 @@ public class NativeProjectImpl implements NativeProject {
         }
     }
 
-    private boolean equalsFSPathLists(List<FSPath> l1, List<FSPath> l2) {
+    private boolean equalsIncludePathLists(List<IncludePath> l1, List<IncludePath> l2) {
         if (l1.size() != l2.size()) {
             return false;
         }
 
-        Iterator<FSPath> i1 = l1.iterator();
-        Iterator<FSPath> i2 = l2.iterator();
+        Iterator<IncludePath> i1 = l1.iterator();
+        Iterator<IncludePath> i2 = l2.iterator();
 
         while (i1.hasNext() && i2.hasNext()) {
-            if (!Objects.equals(i1.next().getFileObject(), i2.next().getFileObject()))
+            if (!Objects.equals(i1.next().getFSPath().getFileObject(),
+                                i2.next().getFSPath().getFileObject()))
                 return false;
         }
 
@@ -399,20 +392,20 @@ public class NativeProjectImpl implements NativeProject {
         return file2Item.get(fileObject);
     }
 
-    private final List<Object> systemIncludes;
+    private final List<IncludePath> systemIncludes;
 
     @Override
-    public List getSystemIncludePaths() {
+    public List<IncludePath> getSystemIncludePaths() {
         return systemIncludes;
     }
 
     @Override
-    public List getUserIncludePaths() {
+    public List<IncludePath> getUserIncludePaths() {
         return includes;
     }
 
     @Override
-    public List getIncludeFiles() {
+    public List<FSPath> getIncludeFiles() {
         return Collections.emptyList();
     }
 
@@ -427,6 +420,11 @@ public class NativeProjectImpl implements NativeProject {
     }
 
     public List<FSPath> getSystemIncludeHeaders() {
+        return Collections.emptyList();
+    }
+
+    @Override
+    public List<NativeFileItem> getStandardHeadersIndexers() {
         return Collections.emptyList();
     }
 
@@ -478,17 +476,17 @@ public class NativeProjectImpl implements NativeProject {
         }
 
         @Override
-        public List getSystemIncludePaths() {
+        public List<IncludePath> getSystemIncludePaths() {
             return project.getSystemIncludePaths();
         }
 
         @Override
-        public List getUserIncludePaths() {
+        public List<IncludePath> getUserIncludePaths() {
             return project.getUserIncludePaths();
         }
 
         @Override
-        public List getIncludeFiles() {
+        public List<FSPath> getIncludeFiles() {
             return Collections.emptyList();
         }
 
@@ -556,21 +554,7 @@ public class NativeProjectImpl implements NativeProject {
                 NativeProject nativePrj = prj.getLookup().lookup(NativeProject.class);
 
                 if (nativePrj != null) {
-                    NativeProjectRegistry registry = NativeProjectRegistry.getDefault();
-                    Class<? extends NativeProjectRegistry> registryClazz = registry.getClass();
-                    try {
-                        registryClazz.getMethod("unregister", NativeProject.class, boolean.class).invoke(registry, nativePrj, false);
-                    } catch (ReflectiveOperationException ex) {
-                        try {
-                            registryClazz.getMethod("unregister", NativeProject.class).invoke(registry, nativePrj);
-                            LOG.log(Level.FINE, null, ex);
-                        } catch (ReflectiveOperationException ex1) {
-                            ex1.addSuppressed(ex);
-                            Exceptions.printStackTrace(ex1);
-                        }
-                    }
-                    //was:
-//                    NativeProjectRegistry.getDefault().unregister(nativePrj);
+                    NativeProjectRegistry.getDefault().unregister(nativePrj, false);
                 }
             }
         };
