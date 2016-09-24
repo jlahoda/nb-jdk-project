@@ -44,6 +44,11 @@
 SUPPORTED_ACTIONS: build,clean,rebuild,run.single,debug.single,compile.single,run,select.tool,debug
 -->
 <project name="jdk-project-build-langtools">
-    <!-- XXX: should set target JDK to the current JDK - how about boot JDK -->
+    <condition property="langtools.jdk.home" value="${nb.jdk.project.target.java.home}">
+        <or>
+            <available file="javac" filepath="${nb.jdk.project.target.java.home}/bin" />
+            <available file="javac.exe" filepath="${nb.jdk.project.target.java.home}/bin" />
+        </or>
+    </condition>
     <import file="${basedir}/make/netbeans/langtools/build.xml"/>
 </project>

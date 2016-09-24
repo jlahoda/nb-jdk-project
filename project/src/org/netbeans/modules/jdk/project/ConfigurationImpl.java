@@ -56,10 +56,12 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.prefs.Preferences;
+
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.api.project.ProjectUtils;
+import org.netbeans.modules.jdk.project.common.api.BuildUtils;
 import org.netbeans.spi.project.ProjectConfiguration;
 import org.netbeans.spi.project.ProjectConfigurationProvider;
 import org.openide.filesystems.FileAttributeEvent;
@@ -218,7 +220,7 @@ public class ConfigurationImpl implements ProjectConfiguration {
         public synchronized void setActiveConfiguration(ConfigurationImpl configuration) {
             this.active = configuration;
             try {
-                jdkRoot.setAttribute("nb-jdk-project-build", configuration.location);
+                jdkRoot.setAttribute(BuildUtils.NB_JDK_PROJECT_BUILD, configuration.location);
             } catch (IOException ex) {
                 Exceptions.printStackTrace(ex);
             }

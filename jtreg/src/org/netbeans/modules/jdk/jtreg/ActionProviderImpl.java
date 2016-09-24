@@ -76,13 +76,11 @@ import javax.swing.text.BadLocationException;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
+import org.netbeans.modules.jdk.project.common.api.BuildUtils;
 import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ActionProvider;
-import org.netbeans.spi.project.support.ant.PropertyEvaluator;
-import org.netbeans.spi.project.support.ant.PropertyProvider;
-import org.netbeans.spi.project.support.ant.PropertyUtils;
 import org.openide.cookies.LineCookie;
 import org.openide.cookies.OpenCookie;
 import org.openide.execution.ExecutionEngine;
@@ -112,8 +110,6 @@ import org.openide.windows.OutputListener;
 @ServiceProvider(service=ActionProvider.class)
 public class ActionProviderImpl implements ActionProvider {
 
-    static final String NB_JDK_PROJECT_BUILD = "nb-jdk-project-build";
-    
     private static final String[] ACTIONS = new String[] {
         COMMAND_TEST_SINGLE,
         COMMAND_DEBUG_TEST_SINGLE,
@@ -247,7 +243,7 @@ public class ActionProviderImpl implements ActionProvider {
                     };
                     List<String> options = new ArrayList<>();
                     options.add("-timeout:10");
-                    options.add("-jdk:" + findTargetJavaHome(file).getAbsolutePath());
+                    options.add("-jdk:" + BuildUtils.findTargetJavaHome(file).getAbsolutePath());
                     options.add("-retain:all");
                     options.add("-ignore:quiet");
                     options.add("-verbose:summary,nopass");
@@ -353,19 +349,6 @@ public class ActionProviderImpl implements ActionProvider {
         remainders.add(0, current);
     }
 
-    private static File getBuildTargetDir(FileObject testFile) {
-        Project prj = FileOwnerQuery.getOwner(testFile);
-        FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
-
-        Object buildAttr = possibleJDKRoot.getAttribute(NB_JDK_PROJECT_BUILD);
-
-        if (buildAttr instanceof File) {
-            return (File) buildAttr;
-        }
-
-        return null;
-    }
-
     private static boolean hasXPatch(FileObject testFile) {
         Project prj = FileOwnerQuery.getOwner(testFile);
         FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
@@ -390,36 +373,8 @@ public class ActionProviderImpl implements ActionProvider {
         }
     }
 
-    static File findTargetJavaHome(FileObject testFile) {
-        File buildDir = getBuildTargetDir(testFile);
-
-        if (buildDir != null) {
-            File candidate = new File(buildDir, "images/j2sdk-image");
-
-            if (candidate.isDirectory()) {
-                return candidate;
-            } else {
-                return new File(buildDir, "jdk");
-           }
-        }
-
-        Project prj = FileOwnerQuery.getOwner(testFile);
-        File projectDirFile = FileUtil.toFile(prj.getProjectDirectory());
-        File userHome = new File(System.getProperty("user.home"));
-        List<PropertyProvider> properties = new ArrayList<>();
-
-        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(projectDirFile, "build.properties")));
-        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(userHome, ".openjdk/langtools-build.properties")));
-        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(userHome, ".openjdk/build.properties")));
-        properties.add(PropertyUtils.propertiesFilePropertyProvider(new File(projectDirFile, "make/build.properties")));
-
-        PropertyEvaluator evaluator = PropertyUtils.sequentialPropertyEvaluator(PropertyUtils.globalPropertyProvider(), properties.toArray(new PropertyProvider[0]));
-
-        return new File(evaluator.evaluate("${target.java.home}"));
-    }
-
     static String builtClassesDirsForBootClassPath(FileObject testFile) {
-        File buildDir = getBuildTargetDir(testFile);
+        File buildDir = BuildUtils.getBuildTargetDir(testFile);
         Project prj = FileOwnerQuery.getOwner(testFile);
         List<FileObject> roots = new ArrayList<>();
 
@@ -451,7 +406,7 @@ public class ActionProviderImpl implements ActionProvider {
     }
 
     static boolean fullBuild(FileObject testFile) {
-        File buildDir = getBuildTargetDir(testFile);
+        File buildDir = BuildUtils.getBuildTargetDir(testFile);
         Project prj = FileOwnerQuery.getOwner(testFile);
 
         if (buildDir != null) {
@@ -476,7 +431,7 @@ public class ActionProviderImpl implements ActionProvider {
                 buildClasses = prj.getProjectDirectory().getFileObject("../../build/classes");
             }
         } else {
-            File buildDir = getBuildTargetDir(testFile);
+            File buildDir = BuildUtils.getBuildTargetDir(testFile);
             FileObject buildDirFO = FileUtil.toFileObject(buildDir);
             buildClasses = buildDirFO != null ? buildDirFO.getFileObject("jdk/modules") : null;
         }
@@ -485,7 +440,7 @@ public class ActionProviderImpl implements ActionProvider {
     }
 
     static File jtregOutputDir(FileObject testFile) {
-        File buildDir = getBuildTargetDir(testFile);
+        File buildDir = BuildUtils.getBuildTargetDir(testFile);
         Project prj = FileOwnerQuery.getOwner(testFile);
 
         if (buildDir != null) {

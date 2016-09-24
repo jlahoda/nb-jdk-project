@@ -56,6 +56,7 @@ import org.netbeans.api.project.Project;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.hints.test.Utilities.TestLookup;
 import org.netbeans.modules.jdk.jtreg.ActionProviderImpl.StackTraceLine;
+import org.netbeans.modules.jdk.project.common.api.BuildUtils;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
 import org.openide.filesystems.FileObject;
@@ -103,7 +104,7 @@ public class ActionProviderImplTest extends NbTestCase {
         createDir(langtoolsClassesDir);
         FileObject langtoolsTestFile = createFile("langtools/test/Test.java");
 
-        createDir("").setAttribute(ActionProviderImpl.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
+        createDir("").setAttribute(BuildUtils.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
         
         FileOwnerQuery.markExternalOwner(javaBaseTestFile.getParent(), FileOwnerQuery.getOwner(javaBaseSource), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
         FileOwnerQuery.markExternalOwner(langtoolsTestFile.getParent(), FileOwnerQuery.getOwner(javaCompilerSource), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
@@ -171,11 +172,11 @@ public class ActionProviderImplTest extends NbTestCase {
         createDir("langtools/src/java.compiler/share/classes");
         FileObject testFile = createFile("langtools/test/Test.java");
 
-        createDir("").setAttribute(ActionProviderImpl.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
+        createDir("").setAttribute(BuildUtils.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
 
         FileOwnerQuery.markExternalOwner(testFile.getParent(), FileOwnerQuery.getOwner(createDir("langtools/src/java.compiler")), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
 
-        File target = ActionProviderImpl.findTargetJavaHome(testFile);
+        File target = BuildUtils.findTargetJavaHome(testFile);
 
         assertEquals("/build/conf/images/j2sdk-image", target.getAbsolutePath().substring(getWorkDir().getAbsolutePath().length()));
     }
@@ -187,11 +188,11 @@ public class ActionProviderImplTest extends NbTestCase {
         createDir("langtools/src/java.compiler/share/classes");
         FileObject testFile = createFile("langtools/test/Test.java");
 
-        createDir("").setAttribute(ActionProviderImpl.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
+        createDir("").setAttribute(BuildUtils.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("build/conf")));
 
         FileOwnerQuery.markExternalOwner(testFile.getParent(), FileOwnerQuery.getOwner(createDir("langtools/src/java.compiler")), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
 
-        File target = ActionProviderImpl.findTargetJavaHome(testFile);
+        File target = BuildUtils.findTargetJavaHome(testFile);
 
         assertEquals("/build/conf/images/jdk", target.getAbsolutePath().substring(getWorkDir().getAbsolutePath().length()));
     }

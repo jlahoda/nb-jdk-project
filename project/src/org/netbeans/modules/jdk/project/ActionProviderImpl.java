@@ -49,9 +49,12 @@ import java.util.HashSet;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+
 import javax.swing.Action;
+
 import org.apache.tools.ant.module.api.support.ActionUtils;
 import org.netbeans.api.java.classpath.ClassPath;
+import org.netbeans.modules.jdk.project.common.api.BuildUtils;
 import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
 import org.netbeans.spi.project.ActionProgress;
@@ -175,6 +178,7 @@ public class ActionProviderImpl implements ActionProvider {
         Properties props = new Properties();
         props.put("basedir", FileUtil.toFile(scriptFO == genericScript ? repository.getParent() : repository).getAbsolutePath());
         props.put("CONF", project.configurations.getActiveConfiguration().getLocation().getName());
+        props.put("nb.jdk.project.target.java.home", BuildUtils.findTargetJavaHome(project.getProjectDirectory()).getAbsolutePath());
         RootKind kind = getKind(context);
         RunSingleConfig singleFileProperty = command2Properties.get(Pair.of(command, kind));
         if (singleFileProperty != null) {
