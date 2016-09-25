@@ -184,6 +184,7 @@ public class ActionProviderImplTest extends NbTestCase {
     public void testImages2() throws Exception {
         createFile("modules.xml");
         createDir("jdk/src/java.base/share/classes");
+        createDir("build/conf/jdk");
         createDir("build/conf/images/jdk");
         createDir("langtools/src/java.compiler/share/classes");
         FileObject testFile = createFile("langtools/test/Test.java");
@@ -194,7 +195,7 @@ public class ActionProviderImplTest extends NbTestCase {
 
         File target = BuildUtils.findTargetJavaHome(testFile);
 
-        assertEquals("/build/conf/images/jdk", target.getAbsolutePath().substring(getWorkDir().getAbsolutePath().length()));
+        assertEquals("/build/conf/jdk", target.getAbsolutePath().substring(getWorkDir().getAbsolutePath().length()));
     }
 
     public void testStackTracePattern() {
