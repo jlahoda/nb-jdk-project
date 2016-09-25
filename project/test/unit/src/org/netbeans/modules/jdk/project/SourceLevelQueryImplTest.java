@@ -106,7 +106,7 @@ public class SourceLevelQueryImplTest extends NbTestCase {
 
         assertNotNull(javaBaseProject);
 
-        assertEquals("1.9", SourceLevelQuery.getSourceLevel(jlObject));
+        assertEquals("9", SourceLevelQuery.getSourceLevel(jlObject));
     }
 
     private void copyString2File(FileObject file, String content) throws IOException {
