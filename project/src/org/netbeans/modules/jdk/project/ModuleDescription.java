@@ -55,6 +55,7 @@ import java.util.Enumeration;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
+import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -212,18 +213,40 @@ public class ModuleDescription {
 
     private static List<ModuleDescription> readModuleInfos(FileObject jdkRoot) throws Exception {
         List<ModuleDescription> result = new ArrayList<>();
-        Enumeration<? extends FileObject> childEn = jdkRoot.getChildren(true);
+        List<FileObject> todo = new LinkedList<>();
 
-        while (childEn.hasMoreElements()) {
-            FileObject f = childEn.nextElement();
+        todo.add(jdkRoot);
 
-            if ("module-info.java".equals(f.getNameExt())) {
-                ModuleDescription module = parseModuleInfo(f);
+        while (!todo.isEmpty()) {
+            FileObject current = todo.remove(0);
+
+            if (".hg".equals(current.getNameExt()))
+                continue; //ignore mercurial repository data
+
+            if ("build".equals(current.getNameExt()) && jdkRoot.equals(current.getParent()))
+                continue; //ignore build dir
+
+            FileObject moduleInfo = current.getFileObject("share/classes/module-info.java");
+
+            if (moduleInfo != null) {
+                ModuleDescription module = parseModuleInfo(moduleInfo);
 
                 if (module != null) {
                     result.add(module);
                 }
+
+                FileObject srcDir = current.getParent();
+                if (srcDir != null && srcDir.getNameExt().equals("src")) {
+                    //do not look inside recognized modules:
+                    continue;
+                }
             }
+
+            if (current.getNameExt().equals("test") && current.getFileObject("TEST.ROOT") != null) {
+                continue; //do not look inside test folders
+            }
+
+            todo.addAll(Arrays.asList(current.getChildren()));
         }
 
         return result;
