@@ -45,6 +45,7 @@ import java.io.IOException;
 import java.io.InputStream;
 import java.io.InputStreamReader;
 import java.io.Reader;
+import java.net.URI;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
@@ -62,7 +63,6 @@ import java.util.regex.Pattern;
 
 import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.lexer.InputAttributes;
-import org.netbeans.api.lexer.Token;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
 import org.openide.filesystems.FileObject;
@@ -95,7 +95,7 @@ public class ModuleDescription {
         return "ModuleDescription{" + "name=" + name + ", depend=" + depend + ", exports=" + exports + '}';
     }
 
-    private static final Map<FileObject, ModuleRepository> jdkRoot2Repository = new HashMap<>();
+    private static final Map<URI, ModuleRepository> jdkRoot2Repository = new HashMap<>();
 
     public static ModuleRepository getModules(FileObject project) throws Exception {
         FileObject jdkRoot = findJDKRoot(project);
@@ -103,7 +103,11 @@ public class ModuleDescription {
         if (jdkRoot == null)
             return null;
 
-        ModuleRepository repository = jdkRoot2Repository.get(jdkRoot);
+        ModuleRepository repository;
+        
+        synchronized (ModuleDescription.class) {
+            repository = jdkRoot2Repository.get(jdkRoot.toURI());
+        }
 
         if (repository != null)
             return repository;
@@ -122,9 +126,15 @@ public class ModuleDescription {
         if (moduleDescriptions.isEmpty())
             return null;
         
-        jdkRoot2Repository.put(jdkRoot, repository = new ModuleRepository(jdkRoot, moduleDescriptions));
+        synchronized (ModuleDescription.class) {
+            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, moduleDescriptions));
+        }
 
         return repository;
+    }
+
+    public static synchronized ModuleRepository getModuleRepository(URI forURI) {
+        return jdkRoot2Repository.get(forURI);
     }
 
     private static FileObject findJDKRoot(FileObject projectDirectory) {
