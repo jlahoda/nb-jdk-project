@@ -236,7 +236,8 @@ public class JDKProject implements Project {
             @Override public void run() {
                 ConfigurationImpl activeConfig = configurations.getActiveConfiguration();
                 File configurationDir = activeConfig != null ? activeConfig.getLocation() : null;
-                properties.setProperty("outputRoot", configurationDir != null ? stripTrailingSlash(configurationDir.toURI().toString()) : "file:///non-existing");
+                properties.setProperty("outputRoot", configurationDir != null ? stripTrailingSlash(configurationDir.toURI().toString())
+                                                                              : FileUtil.normalizeFile(new File(URI.create("file:///non-existing"))).toURI().toString());
             }
         });
     }
