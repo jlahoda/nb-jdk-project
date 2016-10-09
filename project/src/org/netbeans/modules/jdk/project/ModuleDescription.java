@@ -113,6 +113,7 @@ public class ModuleDescription {
         if (repository != null)
             return repository;
 
+        boolean hasModuleInfos;
         List<ModuleDescription> moduleDescriptions;
         FileObject modulesXML = jdkRoot.getFileObject("modules.xml");
 
@@ -120,15 +121,17 @@ public class ModuleDescription {
             moduleDescriptions = new ArrayList<>();
             readModulesXml(modulesXML, moduleDescriptions);
             readModulesXml(jdkRoot.getFileObject("closed/modules.xml"), moduleDescriptions);
+            hasModuleInfos = false;
         } else {
             moduleDescriptions = readModuleInfos(jdkRoot);
+            hasModuleInfos = true;
         }
 
         if (moduleDescriptions.isEmpty())
             return null;
         
         synchronized (ModuleDescription.class) {
-            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, moduleDescriptions));
+            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, hasModuleInfos, moduleDescriptions));
         }
 
         return repository;
@@ -226,7 +229,7 @@ public class ModuleDescription {
             if ("build".equals(current.getNameExt()) && jdkRoot.equals(current.getParent()))
                 continue; //ignore build dir
 
-            FileObject moduleInfo = current.getFileObject("share/classes/module-info.java");
+            FileObject moduleInfo = getModuleInfo(current);
 
             if (moduleInfo != null) {
                 ModuleDescription module = parseModuleInfo(moduleInfo);
@@ -250,6 +253,16 @@ public class ModuleDescription {
         }
 
         return result;
+    }
+
+    private static FileObject getModuleInfo(FileObject project) {
+        for (FileObject c : project.getChildren()) {
+            FileObject moduleInfo = c.getFileObject("classes/module-info.java");
+
+            if (moduleInfo != null)
+                return moduleInfo;
+        }
+        return null;
     }
 
     private static final Pattern MODULE = Pattern.compile("module\\s+(?<modulename>([a-zA-Z0-9]+\\.)*[a-zA-Z0-9]+)");
@@ -334,10 +347,12 @@ public class ModuleDescription {
 
     public static class ModuleRepository {
         private final FileObject root;
+        private final boolean hasModuleInfos;
         public final List<ModuleDescription> modules;
 
-        private ModuleRepository(FileObject root, List<ModuleDescription> modules) {
+        private ModuleRepository(FileObject root, boolean hasModuleInfos, List<ModuleDescription> modules) {
             this.root = root;
+            this.hasModuleInfos = hasModuleInfos;
             this.modules = modules;
         }
 
@@ -352,22 +367,32 @@ public class ModuleDescription {
 
         public FileObject findModuleRoot(String moduleName) {
             for (FileObject repo : root.getChildren()) {
-                if ("java.base".equals(moduleName) && !repo.getName().equals("jdk"))
-                    continue;
-                if ("jdk.compiler".equals(moduleName) && !repo.getName().equals("langtools"))
-                    continue;
-                if ("jdk.dev".equals(moduleName) && !repo.getName().equals("langtools"))
-                    continue;
                 FileObject module = repo.getFileObject("src/" + moduleName);
 
                 if (module == null)
                     module = repo.getFileObject("src/closed/" + moduleName);
 
-                if (module != null && module.isFolder())
+                if (module != null && module.isFolder() && validate(repo, module))
                     return module;
             }
             
             return null;
+        }
+
+        private boolean validate(FileObject repo, FileObject project) {
+            if (hasModuleInfos)
+                return getModuleInfo(project) != null;
+            switch (project.getNameExt()) {
+                case "java.base":
+                    return repo.getName().equals("jdk");
+                case "java.corba":
+                    return repo.getName().equals("corba");
+                case "jdk.compiler":
+                    return repo.getName().equals("langtools");
+                case "jdk.dev":
+                    return repo.getName().equals("langtools");
+            }
+            return true;
         }
 
         public Collection<String> allDependencies(ModuleDescription module) {
