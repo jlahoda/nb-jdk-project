@@ -78,7 +78,13 @@ public class IntegrationTest extends NbTestCase {
     public void testModular() throws IOException, InterruptedException {
         String modularizedJdk9Path = System.getProperty("modularizedJdk9Path");
         assertNotNull(modularizedJdk9Path);
-        doTestLangtoolsTest(modularizedJdk9Path, "jdk/src/java.base", "jdk/src/java.desktop");
+        doTestLangtoolsTest(modularizedJdk9Path, "jdk/src/java.base", "jdk/src/java.desktop", "langtools/src/java.compiler");
+    }
+
+    public void testConsolidatedRepo() throws IOException, InterruptedException {
+        String consolidatedRepoPath = System.getProperty("consolidatedRepoPath");
+        assertNotNull(consolidatedRepoPath);
+        doTestLangtoolsTest(consolidatedRepoPath, "src/java.base", "src/java.desktop", "src/java.compiler");
     }
 
     private void doTestLangtoolsTest(String repoPath, String... projectsToOpen) throws IOException, InterruptedException {

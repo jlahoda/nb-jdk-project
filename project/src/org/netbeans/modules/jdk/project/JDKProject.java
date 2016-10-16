@@ -142,7 +142,7 @@ public class JDKProject implements Project {
         properties.setProperty("os", osKey);
         properties.setProperty("generalized-os", generalizedOsKey);
         properties.setProperty("legacy-os", legacyOsKey);
-        FileObject jdkRoot = moduleRepository != null ? projectDir.getFileObject("../../..") : projectDir.getFileObject("..");
+        FileObject jdkRoot = moduleRepository != null ? moduleRepository.getJDKRoot() : projectDir.getFileObject("..");
         properties.setProperty("jdkRoot", stripTrailingSlash(jdkRoot.toURI().toString()));
         configurations = ConfigurationImpl.getProvider(jdkRoot);
 
@@ -183,16 +183,6 @@ public class JDKProject implements Project {
             switch (currentModule.name) {
                 case "java.base":
                     addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/langtools/src/java.base/share/classes/", null)));
-                    //TODO: what to do with the test folder? make it part of java.base for now
-                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/test/", null)));
-                    break;
-                case "java.compiler":
-                    //TODO: langtools tests
-                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/langtools/test/", null)));
-                    break;
-                case "java.xml":
-                    //TODO: jaxp tests
-                    addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jaxp/test/", null)));
                     break;
                 case "jdk.compiler":
                     addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/src/jdk.compiler/share/classes/", null)));
@@ -201,6 +191,13 @@ public class JDKProject implements Project {
                     addRoots(RootKind.MAIN_SOURCES, Arrays.asList(Pair.<String, String>of("${jdkRoot}/jdk/src/jdk.dev/share/classes/", null)));
                     break;
             }
+
+            String testRoots = moduleRepository.moduleTests(currentModule.name);
+
+            if (testRoots != null) {
+                addRoots(RootKind.TEST_SOURCES, Arrays.asList(Pair.<String, String>of(testRoots, null)));
+            }
+
         }
 
         ClassPathProviderImpl cpp = new ClassPathProviderImpl(this);
@@ -450,7 +447,7 @@ public class JDKProject implements Project {
 
         @Override
         public String getDisplayName() {
-            return currentModule != null ? Bundle.DN_Module(getProjectDirectory().getNameExt(), getProjectDirectory().getFileObject("../../..").getNameExt())
+            return currentModule != null ? Bundle.DN_Module(getProjectDirectory().getNameExt(), moduleRepository.getJDKRoot().getNameExt())
                                          : Bundle.DN_Project(getProjectDirectory().getParent().getNameExt());
         }
 

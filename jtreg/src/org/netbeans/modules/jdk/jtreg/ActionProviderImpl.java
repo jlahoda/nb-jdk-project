@@ -96,6 +96,7 @@ import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
 import org.openide.util.Mutex;
 import org.openide.util.NbBundle.Messages;
+import org.openide.util.Pair;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 import org.openide.windows.IOProvider;
@@ -243,7 +244,8 @@ public class ActionProviderImpl implements ActionProvider {
                     };
                     List<String> options = new ArrayList<>();
                     options.add("-timeout:10");
-                    options.add("-jdk:" + BuildUtils.findTargetJavaHome(file).getAbsolutePath());
+                    File targetJavaHome = BuildUtils.findTargetJavaHome(file);
+                    options.add("-jdk:" + targetJavaHome.getAbsolutePath());
                     options.add("-retain:all");
                     options.add("-ignore:quiet");
                     options.add("-verbose:summary,nopass");
@@ -253,7 +255,7 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add(jtregReport.getAbsolutePath());
                     options.add("-xml:verify");
                     options.add("-javacoptions:-g");
-                    if (hasXPatch(file)) {
+                    if (hasXPatch(targetJavaHome)) {
                         if (!fullBuild(file)) {
                             boolean newStyleXPatch = newStyleXPatch(file);
                             File buildClasses = builtClassesDirsForXOverride(file);
@@ -311,8 +313,17 @@ public class ActionProviderImpl implements ActionProvider {
 
         if (prj.getProjectDirectory().getFileObject("../../../modules.xml") != null ||
             prj.getProjectDirectory().getFileObject("share/classes/module-info.java") != null) {
-            jdkRoot = prj.getProjectDirectory().getFileObject("../../..");
-            sourceDirPaths = Arrays.asList("*", "src", "*", "*", "classes");
+            File buildTarget = BuildUtils.getBuildTargetDir(file);
+            jdkRoot = buildTarget != null ? FileUtil.toFileObject(buildTarget.getParentFile().getParentFile()) : null;
+            if (jdkRoot == null) {
+                //should not happen, just last resort:
+                jdkRoot = prj.getProjectDirectory().getFileObject("../../..");
+            }
+            if (jdkRoot.getFileObject("src/java.base/share/classes/module-info.java") != null) {
+                sourceDirPaths = Arrays.asList("src", "*", "*", "classes");
+            } else {
+                sourceDirPaths = Arrays.asList("*", "src", "*", "*", "classes");
+            }
         } else {
             jdkRoot = prj.getProjectDirectory().getFileObject("../../..");
             sourceDirPaths = Arrays.asList("src", "*", "*", "classes");
@@ -349,11 +360,8 @@ public class ActionProviderImpl implements ActionProvider {
         remainders.add(0, current);
     }
 
-    private static boolean hasXPatch(FileObject testFile) {
-        Project prj = FileOwnerQuery.getOwner(testFile);
-        FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject("../../..");
-
-        return possibleJDKRoot.getFileObject("jdk/src/java.base/share/classes/module-info.java") != null;
+    private static boolean hasXPatch(File targetJavaHome) {
+        return new File(targetJavaHome, "conf").isDirectory();
     }
 
     private static boolean newStyleXPatch(FileObject testFile) {

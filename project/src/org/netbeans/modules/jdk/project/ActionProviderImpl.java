@@ -176,7 +176,7 @@ public class ActionProviderImpl implements ActionProvider {
             command = COMMAND_BUILD_FAST; //XXX: should only do this if genericScript supports it
         }
         Properties props = new Properties();
-        props.put("basedir", FileUtil.toFile(scriptFO == genericScript ? repository.getParent() : repository).getAbsolutePath());
+        props.put("basedir", FileUtil.toFile(scriptFO == genericScript ? project.moduleRepository.getJDKRoot() : repository).getAbsolutePath());
         props.put("CONF", project.configurations.getActiveConfiguration().getLocation().getName());
         props.put("nb.jdk.project.target.java.home", BuildUtils.findTargetJavaHome(project.getProjectDirectory()).getAbsolutePath());
         RootKind kind = getKind(context);

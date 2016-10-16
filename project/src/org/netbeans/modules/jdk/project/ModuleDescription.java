@@ -66,7 +66,9 @@ import org.netbeans.api.java.lexer.JavaTokenId;
 import org.netbeans.api.lexer.InputAttributes;
 import org.netbeans.api.lexer.TokenHierarchy;
 import org.netbeans.api.lexer.TokenSequence;
+import org.netbeans.modules.jdk.project.JDKProject.RootKind;
 import org.openide.filesystems.FileObject;
+import org.openide.util.Pair;
 import org.openide.xml.XMLUtil;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
@@ -99,10 +101,12 @@ public class ModuleDescription {
     private static final Map<URI, ModuleRepository> jdkRoot2Repository = new HashMap<>();
 
     public static ModuleRepository getModules(FileObject project) throws Exception {
-        FileObject jdkRoot = findJDKRoot(project);
+        Pair<FileObject, Boolean> jdkRootAndType = findJDKRoot(project);
 
-        if (jdkRoot == null)
+        if (jdkRootAndType == null)
             return null;
+
+        FileObject jdkRoot = jdkRootAndType.first();
 
         ModuleRepository repository;
         
@@ -131,7 +135,7 @@ public class ModuleDescription {
             return null;
         
         synchronized (ModuleDescription.class) {
-            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, hasModuleInfos, moduleDescriptions));
+            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, hasModuleInfos, jdkRootAndType.second(), moduleDescriptions));
         }
 
         return repository;
@@ -141,11 +145,14 @@ public class ModuleDescription {
         return jdkRoot2Repository.get(forURI);
     }
 
-    private static FileObject findJDKRoot(FileObject projectDirectory) {
+    private static Pair<FileObject, Boolean> findJDKRoot(FileObject projectDirectory) {
+        if (projectDirectory.getFileObject("../../src/java.base/share/classes/module-info.java") != null &&
+            projectDirectory.getFileObject("../../src/java.compiler/share/classes/module-info.java") != null)
+            return Pair.of(projectDirectory.getFileObject("../.."), true);
         if (projectDirectory.getFileObject("../../../modules.xml") != null || projectDirectory.getFileObject("../../../jdk/src/java.base/share/classes/module-info.java") != null)
-            return projectDirectory.getFileObject("../../..");
+            return Pair.of(projectDirectory.getFileObject("../../.."), false);
         if (projectDirectory.getFileObject("../../../../modules.xml") != null || projectDirectory.getFileObject("../../../../jdk/src/java.base/share/classes/module-info.java") != null)
-            return projectDirectory.getFileObject("../../../..");
+            return Pair.of(projectDirectory.getFileObject("../../../.."), false);
 
         return null;
     }
@@ -348,12 +355,18 @@ public class ModuleDescription {
     public static class ModuleRepository {
         private final FileObject root;
         private final boolean hasModuleInfos;
+        private final boolean consolidatedRepository;
         public final List<ModuleDescription> modules;
 
-        private ModuleRepository(FileObject root, boolean hasModuleInfos, List<ModuleDescription> modules) {
+        private ModuleRepository(FileObject root, boolean hasModuleInfos, boolean consolidatedRepository, List<ModuleDescription> modules) {
             this.root = root;
             this.hasModuleInfos = hasModuleInfos;
+            this.consolidatedRepository = consolidatedRepository;
             this.modules = modules;
+        }
+
+        public FileObject getJDKRoot() {
+            return root;
         }
 
         public ModuleDescription findModule(String moduleName) {
@@ -366,14 +379,21 @@ public class ModuleDescription {
         }
 
         public FileObject findModuleRoot(String moduleName) {
-            for (FileObject repo : root.getChildren()) {
-                FileObject module = repo.getFileObject("src/" + moduleName);
+            if (consolidatedRepository) {
+                FileObject module = root.getFileObject("src/" + moduleName);
 
-                if (module == null)
-                    module = repo.getFileObject("src/closed/" + moduleName);
-
-                if (module != null && module.isFolder() && validate(repo, module))
+                if (module != null && module.isFolder())
                     return module;
+            } else {
+                for (FileObject repo : root.getChildren()) {
+                    FileObject module = repo.getFileObject("src/" + moduleName);
+
+                    if (module == null)
+                        module = repo.getFileObject("src/closed/" + moduleName);
+
+                    if (module != null && module.isFolder() && validate(repo, module))
+                        return module;
+                }
             }
             
             return null;
@@ -393,6 +413,21 @@ public class ModuleDescription {
                     return repo.getName().equals("langtools");
             }
             return true;
+        }
+
+        public String moduleTests(String moduleName) {
+            //TODO? for now, tests are assigned to java.base, java.compiler and java.xml, depending on the location of the tests:
+            switch (moduleName) {
+                case "java.base":
+                    return consolidatedRepository ? "${jdkRoot}/test/jdk/" : "${jdkRoot}/jdk/test/";
+                case "java.compiler":
+                    return consolidatedRepository ? "${jdkRoot}/test/langtools/" : "${jdkRoot}/langtools/test/";
+                case "java.xml":
+                    return consolidatedRepository ? "${jdkRoot}/test/jaxp/" : "${jdkRoot}/jaxp/test/";
+                case "jdk.scripting.nashorn":
+                    return consolidatedRepository ? "${jdkRoot}/test/nashorn/" : "${jdkRoot}/nashorn/test/";
+            }
+            return null;
         }
 
         public Collection<String> allDependencies(ModuleDescription module) {
