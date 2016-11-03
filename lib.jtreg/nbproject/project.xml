@@ -64,6 +64,26 @@
                 <package>com.sun.javatest.tool.selectiontree</package>
                 <package>com.sun.javatest.tool.selectiontree.selection</package>
                 <package>com.sun.javatest.util</package>
+                <package>com.sun.tdk.jcov</package>
+                <package>com.sun.tdk.jcov.ant</package>
+                <package>com.sun.tdk.jcov.api</package>
+                <package>com.sun.tdk.jcov.constants</package>
+                <package>com.sun.tdk.jcov.data</package>
+                <package>com.sun.tdk.jcov.filter</package>
+                <package>com.sun.tdk.jcov.insert</package>
+                <package>com.sun.tdk.jcov.instrument</package>
+                <package>com.sun.tdk.jcov.instrument.reader</package>
+                <package>com.sun.tdk.jcov.io</package>
+                <package>com.sun.tdk.jcov.processing</package>
+                <package>com.sun.tdk.jcov.report</package>
+                <package>com.sun.tdk.jcov.report.ancfilters</package>
+                <package>com.sun.tdk.jcov.report.html</package>
+                <package>com.sun.tdk.jcov.report.html.resources</package>
+                <package>com.sun.tdk.jcov.report.javap</package>
+                <package>com.sun.tdk.jcov.report.text</package>
+                <package>com.sun.tdk.jcov.runtime</package>
+                <package>com.sun.tdk.jcov.tools</package>
+                <package>com.sun.tdk.jcov.util</package>
             </public-packages>
             <class-path-extension>
                 <runtime-relative-path>ext/javatest.jar</runtime-relative-path>
@@ -76,6 +96,14 @@
             <class-path-extension>
                 <runtime-relative-path>ext/jtreg.jar</runtime-relative-path>
                 <binary-origin>release/modules/ext/jtreg.jar</binary-origin>
+            </class-path-extension>
+            <class-path-extension>
+                <runtime-relative-path>ext/jcov.jar</runtime-relative-path>
+                <binary-origin>release/modules/ext/jcov.jar</binary-origin>
+            </class-path-extension>
+            <class-path-extension>
+                <runtime-relative-path>ext/asm.jar</runtime-relative-path>
+                <binary-origin>release/modules/ext/asm.jar</binary-origin>
             </class-path-extension>
         </data>
     </configuration>

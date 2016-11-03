@@ -41,7 +41,14 @@
  */
 package org.netbeans.modules.jdk.jtreg;
 
+import java.io.File;
+
+import org.netbeans.api.project.FileOwnerQuery;
+import org.netbeans.api.project.Project;
+import org.netbeans.modules.jdk.project.common.api.BuildUtils;
+import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.openide.filesystems.FileObject;
+import org.openide.filesystems.FileUtil;
 
 /**
  *
@@ -83,4 +90,21 @@ public class Utilities {
         return root.getFileObject("src/share/classes");
     }
     
+    public static File jtregOutputDir(FileObject testFile) {
+        File buildDir = BuildUtils.getBuildTargetDir(testFile);
+        Project prj = FileOwnerQuery.getOwner(testFile);
+
+        if (buildDir != null) {
+            FileObject repo = prj.getProjectDirectory().getParent().getParent();
+            if (repo.getNameExt().equals("langtools") &&
+                ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
+                buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../build");
+            }
+        } else {
+            buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../../build");
+        }
+
+        return new File(buildDir, "nb-jtreg").toPath().normalize().toFile();
+    }
+
 }

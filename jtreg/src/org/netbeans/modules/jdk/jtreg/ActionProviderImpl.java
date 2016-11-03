@@ -51,12 +51,14 @@ import com.sun.javatest.regtest.tool.Tool;
 
 import java.awt.event.ActionEvent;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.FileNotFoundException;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.PrintWriter;
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.Collections;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
@@ -73,6 +75,9 @@ import javax.swing.AbstractAction;
 import javax.swing.SwingUtilities;
 import javax.swing.text.BadLocationException;
 
+import com.sun.tdk.jcov.Grabber;
+import com.sun.tdk.jcov.Instr;
+
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
@@ -87,6 +92,7 @@ import org.openide.execution.ExecutionEngine;
 import org.openide.execution.ExecutorTask;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
+import org.openide.modules.InstalledFileLocator;
 import org.openide.text.Line;
 import org.openide.text.Line.ShowOpenType;
 import org.openide.text.Line.ShowVisibilityType;
@@ -96,7 +102,6 @@ import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
 import org.openide.util.Mutex;
 import org.openide.util.NbBundle.Messages;
-import org.openide.util.Pair;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 import org.openide.windows.IOProvider;
@@ -150,7 +155,7 @@ public class ActionProviderImpl implements ActionProvider {
         final ReRunAction redebug = ReRunAction.recordDebug(io, newReDebug);
         rerun.setFile(file);
         redebug.setFile(file);
-        File jtregOutput = jtregOutputDir(file);
+        final File jtregOutput = Utilities.jtregOutputDir(file);
         final File jtregWork = new File(jtregOutput, "work");
         final File jtregReport = new File(jtregOutput, "report");
         final ActionProgress progress = ActionProgress.start(context);
@@ -158,6 +163,7 @@ public class ActionProviderImpl implements ActionProvider {
             @Override
             public void run() {
                 boolean success = false;
+                Grabber g = null;
                 try {
                     try {
                         io.getOut().reset();
@@ -219,29 +225,6 @@ public class ActionProviderImpl implements ActionProvider {
                     ClassPath testSourcePath = ClassPath.getClassPath(file, ClassPath.SOURCE);
                     ClassPath extraSourcePath = allSources(file);
                     final ClassPath fullSourcePath = ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath);
-                    Tool.callBack = new ActionCallBack() {
-                        @Override
-                        public void actionStarted(Action action) {
-                        }
-                        @Override
-                        public List<String> getAdditionalVMJavaOptions(Action action) {
-                            if (!debug) return Collections.emptyList();
-
-                            JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
-                            s.setAdditionalSourcePath(fullSourcePath);
-                            try {
-                                Project prj = FileOwnerQuery.getOwner(file);
-                                String connectTo = s.execute(prj);
-                                return Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo);
-                            } catch (Throwable ex) {
-                                Exceptions.printStackTrace(ex);
-                                return Arrays.asList();
-                            }
-                        }
-                        @Override
-                        public void actionEnded(Action action) {
-                        }
-                    };
                     List<String> options = new ArrayList<>();
                     options.add("-timeout:10");
                     File targetJavaHome = BuildUtils.findTargetJavaHome(file);
@@ -255,21 +238,82 @@ public class ActionProviderImpl implements ActionProvider {
                     options.add(jtregReport.getAbsolutePath());
                     options.add("-xml:verify");
                     options.add("-javacoptions:-g");
+                    final List<String> extraVMOptions = new ArrayList<>();
+                    Set<File> toRefresh = new HashSet<>();
                     if (hasXPatch(targetJavaHome)) {
-                        if (!fullBuild(file)) {
-                            boolean newStyleXPatch = newStyleXPatch(file);
-                            File buildClasses = builtClassesDirsForXOverride(file);
-                            File[] modules = buildClasses != null ? buildClasses.listFiles() : null;
-                            if (modules != null) {
-                                for (File module : modules) {
-                                    if (newStyleXPatch) {
-                                        options.add("--patch-module");
-                                        options.add(module.getName() + "=" + module.getAbsolutePath());
-                                    } else {
-                                        options.add("-Xpatch:" + module.getName() + "=" + module.getAbsolutePath());
+                        boolean jcov = true; //XXX
+                        if (jcov) {
+                            io.getOut().print("Instrumenting classfiles...");
+                            File jcovDir = new File(jtregOutput, "jcov");
+                            File buildDir = BuildUtils.getBuildTargetDir(file);
+
+                            if (buildDir == null) {
+                                io.getErr().println("Cannot run test under jcov - build dir missing!");
+                                return ;
+                            }
+
+                            List<File> buildDirs = new ArrayList<>();
+
+                            if (!fullBuild(file)) {
+                                buildDirs.add(builtClassesDirsForXOverride(file));
+                            }
+
+                            buildDirs.add(new File(new File(buildDir, "jdk"), "modules"));
+
+                            Map<String, File> project2Classes = new HashMap<>();
+
+                            for (File bd : buildDirs) {
+                                File[] modules = bd != null ? bd.listFiles() : null;
+                                if (modules != null) {
+                                    for (File module : modules) {
+                                        String moduleName = module.getName();
+
+                                        if (!project2Classes.containsKey(moduleName)) {
+                                            project2Classes.put(moduleName, module);
+                                        }
                                     }
                                 }
                             }
+
+                            File xPatchClasses = new File(jcovDir, "instrumented-classes");
+                            File template = new File(jcovDir, "template.xml");
+                            File jcovData = new File(jcovDir, "jcov.xml");
+
+                            toRefresh.add(jcovData);
+
+                            instrument(buildDirs.get(0), xPatchClasses, template, project2Classes.values());
+
+                            io.getOut().println(" done.");
+
+                            io.getOut().print("Starting coverage grabber...");
+                            g = new Grabber();
+                            g.setPort(0);
+                            g.setOutputFilename(jcovData.getAbsolutePath());
+                            g.setSaveOnReceive(true);
+                            g.setTemplate(template.getAbsolutePath());
+                            try {
+                                g.createServer();
+                            } catch (IOException ex) {
+                                ex.printStackTrace(io.getErr());
+                                return ;
+                            }
+                            g.startServer();
+                            final int port = g.getServerPort();
+                            File networkSaver = InstalledFileLocator.getDefault().locate("modules/ext/jcov_network_saver.jar", "org.netbeans.modules.jdk.jtreg.lib", false);
+                            extraVMOptions.addAll(Arrays.asList(
+                                "-Xbootclasspath/a:" + networkSaver.getAbsolutePath(),
+                                "-Djcov.port=" + port));
+                            for (File module : xPatchClasses.listFiles()) {
+                                extraVMOptions.add("--add-reads=" + module.getName() + "=ALL-UNNAMED");
+                            }
+
+                            io.getOut().println(" done.");
+
+                            genXPatchForDir(file, xPatchClasses, options);
+                        } else if (!fullBuild(file)) {
+                            File buildClasses = builtClassesDirsForXOverride(file);
+                            
+                            genXPatchForDir(file, buildClasses, options);
                         }
                     } else {
                         options.add("-Xbootclasspath/p:" + builtClassesDirsForBootClassPath(file));
@@ -280,17 +324,50 @@ public class ActionProviderImpl implements ActionProvider {
                         JDK.clearCache();
                         PrintWriter outW = new PrintWriter(io.getOut());
                         PrintWriter errW = new PrintWriter(io.getErr());
+                        Tool.callBack = new ActionCallBack() {
+                            @Override
+                            public void actionStarted(Action action) {
+                            }
+                            @Override
+                            public List<String> getAdditionalVMJavaOptions(Action action) {
+                                if (!debug) return extraVMOptions;
+
+                                List<String> options = new ArrayList<>();
+
+                                options.addAll(extraVMOptions);
+
+                                JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
+                                s.setAdditionalSourcePath(fullSourcePath);
+                                try {
+                                    Project prj = FileOwnerQuery.getOwner(file);
+                                    String connectTo = s.execute(prj);
+                                    options.addAll(Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo));
+                                } catch (Throwable ex) {
+                                    Exceptions.printStackTrace(ex);
+                                }
+
+                                return options;
+                            }
+                            @Override
+                            public void actionEnded(Action action) {
+                            }
+                        };
                         new Tool(outW, errW).run(options.toArray(new String[options.size()]));
                         outW.flush();
                         errW.flush();
                         success = true;
                         printJTR(io, jtregWork, fullSourcePath, file);
+
+                        for (File refresh : toRefresh) {
+                            FileUtil.refreshFor(refresh);
+                        }
                     } catch (BadArgs | Fault | Harness.Fault | InterruptedException ex) {
                         ex.printStackTrace(io.getErr());
                     } finally {
                         stop.finished();
                     }
                 } finally {
+                    if (g != null) g.stopServer(false);
                     io.getOut().close();
                     io.getErr().close();
                     try {
@@ -447,23 +524,6 @@ public class ActionProviderImpl implements ActionProvider {
         return buildClasses != null ? FileUtil.toFile(buildClasses).getAbsoluteFile() : null;
     }
 
-    static File jtregOutputDir(FileObject testFile) {
-        File buildDir = BuildUtils.getBuildTargetDir(testFile);
-        Project prj = FileOwnerQuery.getOwner(testFile);
-
-        if (buildDir != null) {
-            FileObject repo = prj.getProjectDirectory().getParent().getParent();
-            if (repo.getNameExt().equals("langtools") &&
-                ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
-                buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../build");
-            }
-        } else {
-            buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../../build");
-        }
-
-        return new File(buildDir, "nb-jtreg").toPath().normalize().toFile();
-    }
-
     static void printJTR(InputOutput io, File jtregWork, ClassPath fullSourcePath, FileObject testFile) {
         try {
             FileObject testRoot = testFile;
@@ -533,6 +593,51 @@ public class ActionProviderImpl implements ActionProvider {
 
         if (oc != null) {
             oc.open();
+        }
+    }
+
+    private static void genXPatchForDir(FileObject testFile, File dir, List<String> options) {
+        boolean newStyleXPatch = newStyleXPatch(testFile);
+        File[] modules = dir != null ? dir.listFiles() : null;
+        if (modules != null) {
+            for (File module : modules) {
+                if (newStyleXPatch) {
+                    options.add("--patch-module");
+                    options.add(module.getName() + "=" + module.getAbsolutePath());
+                } else {
+                    options.add("-Xpatch:" + module.getName() + "=" + module.getAbsolutePath());
+                }
+            }
+        }
+    }
+
+    //XXX: cleaning-up template xml for deleted classes!
+    private static void instrument(File originalDir, File instrumentedDir, File template, final Iterable<File> classpath) {
+        File[] children = originalDir.listFiles();
+
+        if (children == null) return ; //TODO: log?
+
+        for (File c : children) {
+            Instr instr = new Instr();
+
+            instr.setClassLookup(name -> {
+                for (File e : classpath) {
+                    File f = new File(e, name.replace("/", File.separator) + ".class");
+
+                    if (f.canRead()) {
+                        try {
+                            return new FileInputStream(f);
+                        } catch (FileNotFoundException ex) {
+                            //should not happen
+                            throw new IllegalStateException(ex);
+                        }
+                    }
+                }
+
+                return null;
+            });
+
+            instr.run(new String[] {"-o", new File(instrumentedDir, c.getName()).getAbsolutePath(), c.getAbsolutePath(), "-template", template.getAbsolutePath()});
         }
     }
 
