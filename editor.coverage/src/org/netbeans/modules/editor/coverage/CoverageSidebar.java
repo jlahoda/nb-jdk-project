@@ -41,7 +41,7 @@
  * Version 2 license, then the option applies only if the new code is
  * made subject to such option by the copyright holder.
  */
-package org.netbeans.modules.jdk.jtreg;
+package org.netbeans.modules.editor.coverage;
 
 import org.netbeans.editor.*;
 import org.netbeans.editor.Utilities;
@@ -59,41 +59,28 @@ import javax.swing.text.*;
 
 import java.awt.event.*;
 import java.awt.*;
-import java.io.File;
 import java.util.List;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.util.ArrayList;
-import java.util.Iterator;
-import java.util.Map;
-import java.util.Map.Entry;
-import java.util.Objects;
-import java.util.TreeMap;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
+import javax.swing.event.ChangeEvent;
+import javax.swing.event.ChangeListener;
 import javax.swing.plaf.TextUI;
 
-import com.sun.tdk.jcov.data.FileFormatException;
-import com.sun.tdk.jcov.report.AncFilter;
-import com.sun.tdk.jcov.report.ClassCoverage;
-import com.sun.tdk.jcov.report.CoverageData;
-import com.sun.tdk.jcov.report.DataType;
-import com.sun.tdk.jcov.report.ItemCoverage;
-import com.sun.tdk.jcov.report.MethodCoverage;
-import com.sun.tdk.jcov.report.PackageCoverage;
-import com.sun.tdk.jcov.report.ProductCoverage;
-import com.sun.tdk.jcov.report.ancfilters.CatchANCFilter;
-import com.sun.tdk.jcov.report.ancfilters.DeprecatedANCFilter;
-import com.sun.tdk.jcov.report.ancfilters.EmptyANCFilter;
-import com.sun.tdk.jcov.report.ancfilters.SyntheticANCFilter;
-import com.sun.tdk.jcov.report.ancfilters.ThrowANCFilter;
-import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.modules.editor.NbEditorUtilities;
+import org.netbeans.modules.editor.coverage.spi.CoverageProvider;
+import org.netbeans.modules.editor.coverage.spi.CoverageProvider.Coverage;
+import org.netbeans.modules.editor.coverage.spi.CoverageProvider.CoverageData;
+import org.netbeans.modules.editor.coverage.spi.CoverageProvider.CoverageType;
+import org.netbeans.spi.editor.SideBarFactory;
 import org.openide.cookies.EditorCookie;
 import org.openide.cookies.LineCookie;
 import org.openide.text.Line;
+import org.openide.util.Lookup;
 import org.openide.util.Mutex;
 
 /**
@@ -101,7 +88,7 @@ import org.openide.util.Mutex;
  * 
  * @author Maros Sandor
  */
-public class CoverageSidebar extends JPanel implements DocumentListener, ComponentListener, FoldHierarchyListener, FileChangeListener {
+public class CoverageSidebar extends JPanel implements DocumentListener, ComponentListener, FoldHierarchyListener, FileChangeListener, ChangeListener {
     
     private static final int BAR_WIDTH = 9;
     private static final Logger LOG = Logger.getLogger(CoverageSidebar.class.getName());
@@ -120,36 +107,11 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
     private boolean                 sidebarVisible = true;
     private boolean                 sidebarTemporarilyDisabled; // flag disallowing the sidebar to ask for file's content
     private boolean                 sidebarInComponentHierarchy;
-    private long                    currentRawCoverageTimestamp;
-    private LineCoverage[]          currentRawCoverage;
+    private List<CoverageProvider>  providers;
+    private CoverageProvider        lastProvider;
+    private CoverageData            lastData;
     private LineCoverage[]          currentCoverage;
     private long                    currentFileTimestamp;
-    private File                    jcovFile;
-    private final FileChangeListener      jcovFileListener = new FileChangeListener() {
-        @Override
-        public void fileFolderCreated(FileEvent fe) {
-        }
-        @Override
-        public void fileDataCreated(FileEvent fe) {
-            refreshCoverage();
-        }
-        @Override
-        public void fileChanged(FileEvent fe) {
-            refreshCoverage();
-        }
-        @Override
-        public void fileDeleted(FileEvent fe) {
-            //keep the last coverage
-        }
-        @Override
-        public void fileRenamed(FileRenameEvent fre) {
-            //? ignore for now
-        }
-
-        @Override
-        public void fileAttributeChanged(FileAttributeEvent fae) {
-        }
-    };
 
     private Color colorCovered =      new Color(150, 255, 150);
     private Color colorANC     =      Color.YELLOW;
@@ -426,7 +388,7 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
                     }
                     line = rootElem.getElementIndex(view.getStartOffset());
                     line++; // make it 1-based
-                    LineCoverage lc = paintCoverage[line];
+                    LineCoverage lc = line < paintCoverage.length ? paintCoverage[line] : null;
                     Rectangle rec1 = component.modelToView(view.getStartOffset());
                     Rectangle rec2 = component.modelToView(view.getEndOffset() - 1);
                     if (rec2  == null || rec1 == null) break;
@@ -461,15 +423,14 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
     private Color getColor(LineCoverage lineCoverage) {
         Color c;
 
-        if (lineCoverage.covered) {
-            c = colorCovered;
-        } else if (lineCoverage.isANC) {
-            c = colorANC;
-        } else {
-            c = colorNotCovered;
+        switch (lineCoverage.type) {
+            case COVERED: c = colorCovered; break;
+            case NOT_COVERED_ACCEPTABLE: c = colorANC; break;
+            default:
+            case NOT_COVERED: c = colorNotCovered; break;
         }
 
-        if (currentFileTimestamp > currentRawCoverageTimestamp) {
+        if (lastData == null || currentFileTimestamp > lastData.getTimeStamp()) {
             c = c.brighter();
         }
 
@@ -495,18 +456,21 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
     @Override
     public void insertUpdate(DocumentEvent e) {
         LOG.finer("refreshing diff in insertUpdate");
+        lastData = null;
         refreshCoverage();
     }
 
     @Override
     public void removeUpdate(DocumentEvent e) {
         LOG.finer("refreshing diff in removeUpdate");
+        lastData = null;
         refreshCoverage();
     }
 
     @Override
     public void changedUpdate(DocumentEvent e) {
         LOG.finer("refreshing diff in changedUpdate");
+        lastData = null;
         refreshCoverage();
     }
 
@@ -542,6 +506,12 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
         });
     }
 
+    @Override
+    public void stateChanged(ChangeEvent e) {
+        lastData = null;
+        refreshCoverage();
+    }
+
     /**
      * RP task to compute new diff after a change in the document or a change in the base text.
      */
@@ -569,177 +539,75 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
         }
 
         private void computeCoverage() {
-            if (!sidebarVisible || sidebarTemporarilyDisabled || !sidebarInComponentHierarchy || (currentRawCoverage != null && currentRawCoverage.length == 0)) {
+            if (!sidebarVisible || sidebarTemporarilyDisabled || !sidebarInComponentHierarchy || /*?*/fileObject == null) {
                 currentCoverage = null;
-                unregisterJCovListener();
                 return;
             }
-            try {
-                ClassPath source = ClassPath.getClassPath(fileObject, ClassPath.SOURCE);
-                String fqn = source != null ? source.getResourceName(fileObject, '.', false) : null;
-
-                if (fqn == null || fqn.lastIndexOf('.') == (-1)) {
-                    currentCoverage = null;
-                    return ;
+            if (providers == null) {
+                providers = new ArrayList();
+                //XXX: listen on Lookup!
+                for (CoverageProvider.Factory f : Lookup.getDefault().lookupAll(CoverageProvider.Factory.class)) {
+                    CoverageProvider p = f.createProvider(fileObject);
+                    providers.add(p);
+                    p.addChangeListener(CoverageSidebar.this);
                 }
+            }
 
-                File jcovData = new File(new File(new File(org.netbeans.modules.jdk.jtreg.Utilities.jtregOutputDir(fileObject), "jcov"), "jcov.xml"), fqn.replace(".", "/") + ".xml");
+            CoverageData data = null;
 
-                if (!Objects.equals(jcovFile, jcovData)) {
-                    unregisterJCovListener();
-                    jcovFile = jcovData;
-                    FileUtil.addFileChangeListener(jcovFileListener, jcovFile);
-                }
-                
-                if (!jcovData.canRead()) {
-                    currentCoverage = null;
-                    return ;
-                }
-
-                long lastModified = jcovData.lastModified();
-
-                if (currentRawCoverage == null || currentRawCoverageTimestamp != lastModified) {
-                    String pack = fqn.substring(0, fqn.lastIndexOf('.'));
-                    String simpleFileName = fileObject.getNameExt();
-
-                    LineCoverage[] data = new LineCoverage[10 * 1024]; //XXX
-                    ProductCoverage coverage = new ProductCoverage(jcovData.getAbsolutePath(), new AncFilter[] {
-                        new CatchANCFilter(),
-                        new DeprecatedANCFilter(),
-                        new EmptyANCFilter(),
-                        new SyntheticANCFilter(),
-                        new ThrowANCFilter(),
-                    });
-
-                    for (PackageCoverage pcov : coverage.getPackages()) {
-                        if (!pcov.getName().contains(pack))
-                            continue;
-                        for (ClassCoverage ccov : pcov.getClasses()) {
-                            if (!ccov.getSource().equals(simpleFileName))
-                                continue;
-                            Map<Integer, List<ItemCoverage>> perLineCoverage = new TreeMap<>();
-                            for (MethodCoverage mcov : ccov.getMethods()) {
-                                for (ItemCoverage icov : mcov.getItems()) {
-                                    List<ItemCoverage> items = perLineCoverage.get(icov.getSourceLine());
-
-                                    if (items == null) {
-                                        perLineCoverage.put(icov.getSourceLine(), items = new ArrayList<>());
-                                    }
-
-                                    items.add(icov);
-                                }
-                            }
-
-                            perLineCoverage.remove(-1);
-                            Iterator<Entry<Integer, List<ItemCoverage>>> cov = perLineCoverage.entrySet().iterator();
-                            if (cov.hasNext()) {
-                                Entry<Integer, List<ItemCoverage>> currentEntry = cov.next();
-                                do {
-                                    Entry<Integer, List<ItemCoverage>> nextEntry = cov.hasNext() ? cov.next() : null;
-                                    int endLine = nextEntry != null ? nextEntry.getKey() - 1 : (int) ccov.getLastLine();
-
-                                    while (!ccov.isCode(endLine) && endLine > currentEntry.getKey())
-                                        endLine--;
-
-                                    LineCoverage lc = LineCoverage.from(currentEntry.getKey(), currentEntry.getValue());
-
-                                    for (int l = currentEntry.getKey(); l <= endLine; l++) {
-                                        if (!ccov.isCode(l))
-                                            continue;
-                                        data[l] = lc;
-                                    }
-                                    currentEntry = nextEntry;
-                                } while (currentEntry != null);
-                            }
-                        }
+            if (lastData == null) {
+                for (CoverageProvider p : providers) {
+                    data = p.getCoverage();
+                    if (data != null) {
+                        break;
                     }
-                    currentRawCoverage = data;
-                    currentRawCoverageTimestamp = lastModified;
                 }
-            } catch (FileFormatException ex) {
-                currentRawCoverage = new LineCoverage[0];
-                currentCoverage = null;
-                return ;
+            } else {
+                data = lastData;
             }
 
             LineCookie lc = fileObject.getLookup().lookup(LineCookie.class);
 
-            currentCoverage = new LineCoverage[lc.getLineSet().getLines().size() + 1];
+            LineCoverage[] lines = new LineCoverage[lc.getLineSet().getLines().size() + 1];
+            
+            if (data != null) {
+                int group = 0;
+                for (Coverage c : data.getCoverage()) {
+                    LineCoverage lineCoverage = new LineCoverage(group++, c.type, c.comment);
+                    for (int originalLineNumber : c.getLines()) {
+                        try {
+                            Line l = lc.getLineSet().getOriginal(originalLineNumber + 1);
 
-            for (Line l : lc.getLineSet().getLines()) {
-                int original = lc.getLineSet().getOriginalLineNumber(l);
-
-                if (original >= currentRawCoverage.length)
-                    continue;
-
-                currentCoverage[l.getLineNumber()] = currentRawCoverage[original];
-            }
-        }
-
-        private void unregisterJCovListener() {
-            if (jcovFile != null) {
-                FileUtil.removeFileChangeListener(jcovFileListener, jcovFile);
-                jcovFile = null;
-            }
-        }
-    }
-
-    private static final class LineCoverage {
-        public final int groupId;
-        public final boolean covered;
-        public final boolean isANC;
-        public final String comment;
-
-        private LineCoverage(int groupId, boolean covered, boolean isANC, String comment) {
-            this.groupId = groupId;
-            this.covered = covered;
-            this.isANC = isANC;
-            this.comment = comment;
-        }
-
-        public static LineCoverage from(int groupId, Iterable<ItemCoverage> items) {
-            boolean covered = true;
-            boolean anc = true;
-            StringBuilder comment = new StringBuilder();
-
-            for (DataType type : new DataType[] {DataType.BLOCK, DataType.BRANCH}) {
-                CoverageData data = getCummulativeCoverage(type, items);
-
-                if (data.getTotal() == 0)
-                    continue;
-
-                covered &= data.getCovered() == data.getTotal();
-                anc &= (data.getCovered() + data.getAnc()) == data.getTotal();
-
-                comment.append(type.getTitle() + ": " + data.getCovered() + (data.getAnc() > 0 ? "(+" + data.getAnc() + ")" : "") + "/" + data.getTotal() + " ");
-            }
-
-            return new LineCoverage(groupId, covered, anc, comment.toString());
-        }
-
-        private static CoverageData getCummulativeCoverage(DataType type, Iterable<ItemCoverage> items) {
-            int coveredBranch = 0;
-            int ancBranch = 0;
-            int totalBranch = 0;
-
-            for (ItemCoverage ic : items) {
-                if (ic.getDataType() == type) {
-                    CoverageData data = ic.getData(type);
-
-                    if (data.getTotal() > 0) {
-                        coveredBranch += data.getCovered();
-                        ancBranch += data.getAnc();
-                        totalBranch += data.getTotal();
+                            lines[l.getLineNumber()] = lineCoverage;
+                        } catch (IndexOutOfBoundsException ex) {
+                            //silently ignore...
+                        }
                     }
                 }
             }
 
-            return new CoverageData(coveredBranch, ancBranch, totalBranch);
+            synchronized (CoverageSidebar.this) {
+                lastData = data;
+                currentCoverage = lines;
+            }
         }
 
     }
 
-    public static final class FactoryImpl implements org.netbeans.spi.editor.SideBarFactory {
+    private static final class LineCoverage {
+        public final int groupId;
+        public final CoverageType type;
+        public final String comment;
+
+        public LineCoverage(int groupId, CoverageType type, String comment) {
+            this.groupId = groupId;
+            this.type = type;
+            this.comment = comment;
+        }
+
+    }
+
+    public static final class FactoryImpl implements SideBarFactory {
 
         @Override
         public JComponent createSideBar(JTextComponent target) {
