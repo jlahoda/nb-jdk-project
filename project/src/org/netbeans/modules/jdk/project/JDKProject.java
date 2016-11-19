@@ -67,6 +67,7 @@ import org.netbeans.api.project.ProjectInformation;
 import org.netbeans.api.project.ProjectManager;
 import org.netbeans.modules.jdk.project.ConfigurationImpl.ProviderImpl;
 import org.netbeans.modules.jdk.project.ModuleDescription.ModuleRepository;
+import org.netbeans.modules.jdk.project.customizer.CustomizerProviderImpl;
 import org.netbeans.spi.project.ProjectConfigurationProvider;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
@@ -213,6 +214,8 @@ public class JDKProject implements Project {
                                     new SubProjectProviderImpl(this),
                                     new ActionProviderImpl(this),
                                     new AccessibilityQueryImpl(currentModule),
+                                    new CustomizerProviderImpl(this),
+                                    new Settings(this),
                                     this);
         this.lookup = LookupProviderSupport.createCompositeLookup(base, "Projects/org-netbeans-modules-jdk-project-JDKProject/Lookup");
     }

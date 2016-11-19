@@ -172,6 +172,15 @@ public class ActionProviderImpl implements ActionProvider {
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
         FileObject scriptFO = script;
         if (COMMAND_BUILD_GENERIC_FAST.equals(command)) {
+            Settings settings = project.getLookup().lookup(Settings.class);
+            switch (settings.getRunBuildSetting()) {
+                case NEVER:
+                    ActionProgress.start(context).finished(true);
+                    return;
+                case ALWAYS:
+                default:
+                    break;
+            }
             scriptFO = genericScript;
             command = COMMAND_BUILD_FAST; //XXX: should only do this if genericScript supports it
         }
