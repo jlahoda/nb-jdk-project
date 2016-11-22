@@ -536,18 +536,18 @@ public class ActionProviderImpl implements ActionProvider {
         }
     }
 
-    private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("\\s*at\\s*(\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*(\\.<init>|\\.<clinit>)?)\\s*\\([^:)]*(:([0-9]+))?\\)");
+    private static final Pattern STACK_TRACE_PATTERN = Pattern.compile("\\s*at\\s*(([^/]*/[^/]*/)|([^/]*/))?(?<location>\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*(\\.\\p{javaJavaIdentifierStart}\\p{javaJavaIdentifierPart}*)*(\\.<init>|\\.<clinit>)?)\\s*\\([^:)]*(:(?<line>[0-9]+))?\\)");
 
     static StackTraceLine matches(String line) {
         Matcher m = STACK_TRACE_PATTERN.matcher(line);
         if (m.matches()) {
-            String className = m.group(1);
+            String className = m.group("location");
             className = className.substring(0, className.lastIndexOf('.'));
             int dollar = className.lastIndexOf('$');
             if (dollar != (-1))
                 className = className.substring(0, dollar);
             className = className.replace('.', '/') + ".java";
-            String lineNumber = m.group(5);
+            String lineNumber = m.group("line");
             return new StackTraceLine(className, lineNumber != null ? Integer.parseInt(lineNumber) : -1);
         } else {
             return null;

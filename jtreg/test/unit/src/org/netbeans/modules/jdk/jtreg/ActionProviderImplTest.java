@@ -204,11 +204,17 @@ public class ActionProviderImplTest extends NbTestCase {
                           new StackTraceLine("com/sun/tools/javac/code/Scope.java", 406)));
         cases.add(Pair.of("	at com.sun.tools.javac.code.Scope$ScopeImpl.<init>(Scope.java:402)",
                           new StackTraceLine("com/sun/tools/javac/code/Scope.java", 402)));
+        cases.add(Pair.of("	at java.base/java.lang.reflect.Method.invoke(Method.java:537)",
+                          new StackTraceLine("java/lang/reflect/Method.java", 537)));
+        cases.add(Pair.of("        at org.netbeans.core.netigso//org.netbeans.core.netigso.Netigso.prepare(Netigso.java:167)",
+                          new StackTraceLine("org/netbeans/core/netigso/Netigso.java", 167)));
+        cases.add(Pair.of("        at org.netbeans.core.netigso/any/org.netbeans.core.netigso.Netigso.prepare(Netigso.java:167)",
+                          new StackTraceLine("org/netbeans/core/netigso/Netigso.java", 167)));
 
         for (Pair<String, StackTraceLine> c : cases) {
             StackTraceLine parsed = ActionProviderImpl.matches(c.first());
 
-            assertFalse(String.valueOf(parsed), parsed == null ^ c.second() == null);
+            assertFalse(c.first() + ":" + String.valueOf(parsed), parsed == null ^ c.second() == null);
 
             if (parsed != null) {
                 assertEquals(c.second().expectedFileName, parsed.expectedFileName);
