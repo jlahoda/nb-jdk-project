@@ -151,6 +151,7 @@ public class ActionProviderImpl implements ActionProvider {
 
                     filteredActions.retainAll(Arrays.asList(actions));
                     filteredActions.add(COMMAND_BUILD_GENERIC_FAST);
+                    filteredActions.add(COMMAND_PROFILE_TEST_SINGLE);
                     supported = filteredActions.toArray(new String[0]);
                     break;
                 }
@@ -170,6 +171,14 @@ public class ActionProviderImpl implements ActionProvider {
 
     @Override
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
+        if (COMMAND_PROFILE_TEST_SINGLE.equals(command)) {
+            for (ActionProvider ap : Lookup.getDefault().lookupAll(ActionProvider.class)) {
+                if (new HashSet<>(Arrays.asList(ap.getSupportedActions())).contains(COMMAND_PROFILE_TEST_SINGLE) && ap.isActionEnabled(COMMAND_PROFILE_TEST_SINGLE, context)) {
+                    ap.invokeAction(COMMAND_PROFILE_TEST_SINGLE, context);
+                    return ;
+                }
+            }
+        }
         FileObject scriptFO = script;
         if (COMMAND_BUILD_GENERIC_FAST.equals(command)) {
             Settings settings = project.getLookup().lookup(Settings.class);

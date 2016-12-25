@@ -90,11 +90,13 @@ public class BuildUtils {
     }
 
     public static File getBuildTargetDir(FileObject file) {
-        Project prj = FileOwnerQuery.getOwner(file);
+        return getBuildTargetDir(FileOwnerQuery.getOwner(file));
+    }
 
+    public static File getBuildTargetDir(Project prj) {
         for (String possibleRootLocation : new String[] {"../../..", "../.."}) {
             FileObject possibleJDKRoot = prj.getProjectDirectory().getFileObject(possibleRootLocation);
-            Object buildAttr = possibleJDKRoot.getAttribute(NB_JDK_PROJECT_BUILD);
+            Object buildAttr = possibleJDKRoot != null ? possibleJDKRoot.getAttribute(NB_JDK_PROJECT_BUILD) : null;
 
             if (buildAttr instanceof File) {
                 return (File) buildAttr;

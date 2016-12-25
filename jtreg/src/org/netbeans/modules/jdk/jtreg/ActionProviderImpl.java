@@ -47,6 +47,7 @@ import com.sun.javatest.regtest.BadArgs;
 import com.sun.javatest.regtest.Main.Fault;
 import com.sun.javatest.regtest.config.JDK;
 import com.sun.javatest.regtest.exec.Action;
+import com.sun.javatest.regtest.exec.BuildAction;
 import com.sun.javatest.regtest.tool.Tool;
 
 import java.awt.event.ActionEvent;
@@ -71,7 +72,6 @@ import java.util.regex.Pattern;
 
 import javax.swing.AbstractAction;
 import javax.swing.SwingUtilities;
-import javax.swing.text.BadLocationException;
 
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
@@ -96,7 +96,6 @@ import org.openide.util.ImageUtilities;
 import org.openide.util.Lookup;
 import org.openide.util.Mutex;
 import org.openide.util.NbBundle.Messages;
-import org.openide.util.Pair;
 import org.openide.util.lookup.Lookups;
 import org.openide.util.lookup.ServiceProvider;
 import org.openide.windows.IOProvider;
@@ -114,6 +113,7 @@ public class ActionProviderImpl implements ActionProvider {
     private static final String[] ACTIONS = new String[] {
         COMMAND_TEST_SINGLE,
         COMMAND_DEBUG_TEST_SINGLE,
+        COMMAND_PROFILE_TEST_SINGLE,
     };
 
     @Override
@@ -123,11 +123,7 @@ public class ActionProviderImpl implements ActionProvider {
 
     @Override
     public void invokeAction(String command, Lookup context) throws IllegalArgumentException {
-        try {
-            createAndRunTest(context, COMMAND_DEBUG_TEST_SINGLE.equals(command));
-        } catch (BadLocationException | IOException ex) {
-            throw new IllegalStateException(ex);
-        }
+        createAndRunTest(context, command);
     }
 
     private static final String COMMAND_BUILD_FAST = "build-fast";
@@ -138,12 +134,12 @@ public class ActionProviderImpl implements ActionProvider {
                "DN_Debugging=Debugging ({0})",
                "# {0} - simple file name",
                "DN_Running=Running ({0})"})
-    public static ExecutorTask createAndRunTest(Lookup context, final boolean debug) throws BadLocationException, IOException {
+    public static ExecutorTask createAndRunTest(Lookup context, String command) {
         final FileObject file = context.lookup(FileObject.class);
-        String ioName = debug ? Bundle.DN_Debugging(file.getName()) : Bundle.DN_Running(file.getName());
+        String ioName = COMMAND_DEBUG_TEST_SINGLE.equals(command) ? Bundle.DN_Debugging(file.getName()) : Bundle.DN_Running(file.getName());
         StopAction newStop = new StopAction();
-        ReRunAction newReRun = new ReRunAction(false);
-        ReRunAction newReDebug = new ReRunAction(true);
+        ReRunAction newReRun = new ReRunAction(COMMAND_TEST_SINGLE);
+        ReRunAction newReDebug = new ReRunAction(COMMAND_DEBUG_TEST_SINGLE);
         final InputOutput io = IOProvider.getDefault().getIO(ioName, false, new javax.swing.Action[] {newReRun, newReDebug, newStop}, null);
         final StopAction stop = StopAction.record(io, newStop);
         final ReRunAction rerun = ReRunAction.recordRun(io, newReRun);
@@ -154,6 +150,7 @@ public class ActionProviderImpl implements ActionProvider {
         final File jtregWork = new File(jtregOutput, "work");
         final File jtregReport = new File(jtregOutput, "report");
         final ActionProgress progress = ActionProgress.start(context);
+        ProfileSupport profiler = COMMAND_PROFILE_TEST_SINGLE.equals(command) ? Lookup.getDefault().lookup(ProfileSupport.Factory.class).create() : null;
         return ExecutionEngine.getDefault().execute(ioName, new Runnable() {
             @Override
             public void run() {
@@ -220,22 +217,32 @@ public class ActionProviderImpl implements ActionProvider {
                     ClassPath extraSourcePath = allSources(file);
                     final ClassPath fullSourcePath = ClassPathSupport.createProxyClassPath(testSourcePath, extraSourcePath);
                     Tool.callBack = new ActionCallBack() {
+                        private int seen = 0;
                         @Override
                         public void actionStarted(Action action) {
                         }
                         @Override
                         public List<String> getAdditionalVMJavaOptions(Action action) {
-                            if (!debug) return Collections.emptyList();
-
-                            JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
-                            s.setAdditionalSourcePath(fullSourcePath);
-                            try {
-                                Project prj = FileOwnerQuery.getOwner(file);
-                                String connectTo = s.execute(prj);
-                                return Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo);
-                            } catch (Throwable ex) {
-                                Exceptions.printStackTrace(ex);
-                                return Arrays.asList();
+                            switch (command) {
+                                case COMMAND_DEBUG_TEST_SINGLE:
+                                    JPDAStart s = new JPDAStart(io, COMMAND_DEBUG_SINGLE); //XXX command
+                                    s.setAdditionalSourcePath(fullSourcePath);
+                                    try {
+                                        Project prj = FileOwnerQuery.getOwner(file);
+                                        String connectTo = s.execute(prj);
+                                        return Arrays.asList("-Xdebug", "-Xrunjdwp:transport=dt_socket,address=localhost:" + connectTo);
+                                    } catch (Throwable ex) {
+                                        Exceptions.printStackTrace(ex);
+                                        return Arrays.asList();
+                                    }
+                                case COMMAND_PROFILE_TEST_SINGLE:
+                                    if (!BuildAction.NAME.equals(action.getName()) && seen++ == 0) {
+                                        return profiler.getCommandLineOptions();
+                                    } else {
+                                        return Collections.emptyList();
+                                    }
+                                default:
+                                    return Collections.emptyList();
                             }
                         }
                         @Override
@@ -654,17 +661,18 @@ public class ActionProviderImpl implements ActionProvider {
         }
 
         private FileObject file;
-        private final boolean debug;
+        private final String command;
 
         @Messages({
             "DESC_ReRun=Run test again",
             "DESC_ReDebug=Run test again under debugger"
         })
-        public ReRunAction(boolean debug) {
+        public ReRunAction(String command) {
             setEnabledEQ(false);
+            boolean debug = COMMAND_DEBUG_TEST_SINGLE.equals(command);
             putValue(SMALL_ICON, ImageUtilities.loadImageIcon(debug ? "org/netbeans/modules/jdk/jtreg/resources/redebug.png" : "org/netbeans/modules/jdk/jtreg/resources/rerun.png", true));
             putValue(SHORT_DESCRIPTION, debug ? Bundle.DESC_ReDebug() : Bundle.DESC_ReRun());
-            this.debug = debug;
+            this.command = command;
         }
 
         public void setFile(FileObject file) {
@@ -673,11 +681,7 @@ public class ActionProviderImpl implements ActionProvider {
 
         @Override
         public void actionPerformed(ActionEvent e) {
-            try {
-                ActionProviderImpl.createAndRunTest(Lookups.singleton(file), debug);
-            } catch (BadLocationException | IOException ex) {
-                Exceptions.printStackTrace(ex);
-            }
+            ActionProviderImpl.createAndRunTest(Lookups.singleton(file), command);
         }
 
         private void enable() {
