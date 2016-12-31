@@ -1,5 +1,5 @@
 Manifest-Version: 1.0
-AutoUpdate-Show-In-Client: true
+AutoUpdate-Show-In-Client: false
 OpenIDE-Module: org.netbeans.modules.jdk.jtreg.bridge.profiler
 OpenIDE-Module-Install: org/netbeans/modules/jdk/jtreg/bridge/profiler/Installer.class
 OpenIDE-Module-Layer: org/netbeans/modules/jdk/jtreg/bridge/profiler/layer.xml
