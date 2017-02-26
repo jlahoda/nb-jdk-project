@@ -66,11 +66,16 @@ import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.prefs.PreferenceChangeEvent;
+import java.util.prefs.PreferenceChangeListener;
+import java.util.prefs.Preferences;
 
 import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import javax.swing.plaf.TextUI;
 
+import org.netbeans.api.editor.mimelookup.MimeLookup;
+import org.netbeans.api.editor.mimelookup.MimePath;
 import org.netbeans.modules.editor.NbEditorUtilities;
 import org.netbeans.modules.editor.coverage.spi.CoverageProvider;
 import org.netbeans.modules.editor.coverage.spi.CoverageProvider.Coverage;
@@ -82,14 +87,26 @@ import org.openide.cookies.LineCookie;
 import org.openide.text.Line;
 import org.openide.util.Lookup;
 import org.openide.util.Mutex;
+import org.openide.util.WeakListeners;
 
 /**
  * Left editor sidebar showing changes in the file against the base version.
  * 
  * @author Maros Sandor
  */
-public class CoverageSidebar extends JPanel implements DocumentListener, ComponentListener, FoldHierarchyListener, FileChangeListener, ChangeListener {
+public class CoverageSidebar extends JPanel implements DocumentListener, ComponentListener, FoldHierarchyListener, FileChangeListener, ChangeListener, PreferenceChangeListener {
+
+    public static final String KEY_COVERAGE = "coverage-sidebar";
+    public static final boolean DEF_COVERAGE = false;
     
+    public static Preferences getPreferences() {
+        return MimeLookup.getLookup(MimePath.EMPTY).lookup(Preferences.class);
+    }
+    
+    public static boolean isSidebarEnabled(Preferences prefs) {
+        return prefs.getBoolean(CoverageSidebar.KEY_COVERAGE, CoverageSidebar.DEF_COVERAGE);
+    }
+
     private static final int BAR_WIDTH = 9;
     private static final Logger LOG = Logger.getLogger(CoverageSidebar.class.getName());
     private static final RequestProcessor WORKER = new RequestProcessor(CoverageSidebar.class.getName(), 1, false, false);
@@ -103,6 +120,7 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
 
     private final FoldHierarchy   foldHierarchy;
     private final BaseDocument    document;
+    private final Preferences prefs;
     
     private boolean                 sidebarVisible = true;
     private boolean                 sidebarTemporarilyDisabled; // flag disallowing the sidebar to ask for file's content
@@ -130,6 +148,9 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
         setToolTipText(""); // NOI18N
         refreshCoverageTask = WORKER.create(new RefreshCoverageTask());
         setMaximumSize(new Dimension(BAR_WIDTH, Integer.MAX_VALUE));
+        prefs = getPreferences();
+        prefs.addPreferenceChangeListener(WeakListeners.create(PreferenceChangeListener.class, this, prefs));
+        preferenceChange(null);
     }
     
     FileObject getFileObject() {
@@ -238,7 +259,7 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
         revalidate();  // resize the component
     }
         
-    public void setSidebarVisible(boolean visible) {
+    private void setSidebarVisible(boolean visible) {
         if (sidebarVisible == visible) {
             return;
         }
@@ -512,6 +533,13 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
         refreshCoverage();
     }
 
+    @Override
+    public final void preferenceChange(PreferenceChangeEvent evt) {
+        if (evt == null || KEY_COVERAGE.equals(evt.getKey())) {
+            setVisible(isSidebarEnabled(prefs));
+        }
+    }
+
     /**
      * RP task to compute new diff after a change in the document or a change in the base text.
      */
@@ -541,6 +569,7 @@ public class CoverageSidebar extends JPanel implements DocumentListener, Compone
         private void computeCoverage() {
             if (!sidebarVisible || sidebarTemporarilyDisabled || !sidebarInComponentHierarchy || /*?*/fileObject == null) {
                 currentCoverage = null;
+                lastData = null;
                 return;
             }
             if (providers == null) {

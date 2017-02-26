@@ -44,9 +44,11 @@
 package org.netbeans.modules.editor.coverage.spi;
 
 import java.util.Arrays;
+import java.util.prefs.Preferences;
 
 import javax.swing.event.ChangeListener;
 
+import org.netbeans.modules.editor.coverage.CoverageSidebar;
 import org.openide.filesystems.FileObject;
 
 /**
@@ -55,6 +57,10 @@ import org.openide.filesystems.FileObject;
  */
 public interface CoverageProvider {
 
+    public static boolean isCoverageEnabled() {
+        Preferences prefs = CoverageSidebar.getPreferences();
+        return CoverageSidebar.isSidebarEnabled(prefs);
+    }
     public CoverageData getCoverage();
     public void addChangeListener(ChangeListener l);
     public void removeChangeListener(ChangeListener l);

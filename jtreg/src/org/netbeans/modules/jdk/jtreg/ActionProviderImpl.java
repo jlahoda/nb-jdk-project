@@ -81,6 +81,7 @@ import com.sun.tdk.jcov.Instr;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
+import org.netbeans.modules.editor.coverage.spi.CoverageProvider;
 import org.netbeans.modules.jdk.project.common.api.BuildUtils;
 import org.netbeans.modules.jdk.project.common.api.ShortcutUtils;
 import org.netbeans.spi.java.classpath.support.ClassPathSupport;
@@ -241,7 +242,7 @@ public class ActionProviderImpl implements ActionProvider {
                     final List<String> extraVMOptions = new ArrayList<>();
                     Set<File> toRefresh = new HashSet<>();
                     if (hasXPatch(targetJavaHome)) {
-                        boolean jcov = true; //XXX
+                        boolean jcov = CoverageProvider.isCoverageEnabled();
                         if (jcov) {
                             io.getOut().print("Instrumenting classfiles...");
                             File jcovDir = new File(jtregOutput, "jcov");
