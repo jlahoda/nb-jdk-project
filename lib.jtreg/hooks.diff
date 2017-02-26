@@ -1,6 +1,6 @@
-diff -r 8553b01536c1 make/build.xml
---- a/make/build.xml	Sun Sep 25 23:18:38 2016 +0200
-+++ b/make/build.xml	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 make/build.xml
+--- a/make/build.xml	Thu Nov 10 20:09:05 2016 +0100
++++ b/make/build.xml	Thu Nov 10 20:13:22 2016 +0100
 @@ -175,7 +175,7 @@
              debug="true" debuglevel="source,lines"
              srcdir="${src.classes.dir}"
@@ -10,9 +10,9 @@ diff -r 8553b01536c1 make/build.xml
              includeantruntime="true">
              <compilerarg line="-Xlint:all"/>
              <patternset refid="jtreg.packages"/>
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/ActionCallBack.java
 --- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Sun Sep 25 23:19:32 2016 +0200
++++ b/src/share/classes/com/sun/javatest/regtest/ActionCallBack.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -0,0 +1,39 @@
 +/*
 + * Copyright (c) 2014, Oracle and/or its affiliates. All rights reserved.
@@ -53,9 +53,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/ActionCallBack.j
 +    public void actionEnded(Action action);
 +
 +}
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/config/JDK.java
---- a/src/share/classes/com/sun/javatest/regtest/config/JDK.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/config/JDK.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/config/JDK.java
+--- a/src/share/classes/com/sun/javatest/regtest/config/JDK.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/config/JDK.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -96,6 +96,10 @@
  
      private static final Map<File, JDK> cache = new HashMap<>();
@@ -67,7 +67,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/config/JDK.java
      /**
       * Creates a JDK object, given its "$JAVA_HOME" path.
       * @param javaHome the "home" directory for the JDK
-@@ -413,7 +417,8 @@
+@@ -414,7 +418,8 @@
                                  new LinkedHashSet<>(Arrays.asList(m.split(" +"))));
                      }
                  } catch (Fault f) {
@@ -77,9 +77,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/config/JDK.java
                  }
              } else {
                  info.systemModules = Collections.emptySet();
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/config/RegressionParameters.java
---- a/src/share/classes/com/sun/javatest/regtest/config/RegressionParameters.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/config/RegressionParameters.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/config/RegressionParameters.java
+--- a/src/share/classes/com/sun/javatest/regtest/config/RegressionParameters.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/config/RegressionParameters.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -51,6 +51,7 @@
  import com.sun.javatest.TestEnvironment;
  import com.sun.javatest.TestFilter;
@@ -88,10 +88,11 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/config/Regressio
  import com.sun.javatest.regtest.agent.JDK_Version;
  import com.sun.javatest.regtest.agent.SearchPath;
  import com.sun.javatest.regtest.exec.TimeoutHandlerProvider;
-@@ -1107,4 +1108,14 @@
-         throw new UnsupportedOperationException("Not supported yet."); //To change body of generated methods, choose Tools | Templates.
-     }
- 
+@@ -1106,4 +1107,15 @@
+     private List<String> retainArgs;
+     private final Set<Integer> retainStatusSet = new HashSet<>(4);
+     private Pattern retainFilesPattern;
++
 +    private ActionCallBack callBack;
 +
 +    public ActionCallBack getCallBack() {
@@ -103,9 +104,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/config/Regressio
 +    }
 +
  }
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/Action.java
---- a/src/share/classes/com/sun/javatest/regtest/exec/Action.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/exec/Action.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/exec/Action.java
+--- a/src/share/classes/com/sun/javatest/regtest/exec/Action.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/exec/Action.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -44,6 +44,7 @@
  
  import com.sun.javatest.Status;
@@ -114,7 +115,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/Action.java
  import com.sun.javatest.regtest.agent.ActionHelper;
  import com.sun.javatest.regtest.agent.Flags;
  import com.sun.javatest.regtest.agent.SearchPath;
-@@ -311,6 +312,12 @@
+@@ -314,6 +315,12 @@
       * @param initConfig whether or not to initialize a configuration section
       */
      protected void startAction(boolean initConfig) {
@@ -127,7 +128,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/Action.java
          String name = getName();
          section = script.getTestResult().createSection(name);
  
-@@ -338,6 +345,12 @@
+@@ -341,6 +348,12 @@
          pw.println(LOG_ELAPSED_TIME + ((double) elapsedTime/1000.0));
          recorder.close();
          section.setStatus(status);
@@ -140,9 +141,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/Action.java
      } // endAction()
  
      //----------workarounds-------------------------------------------------------
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/CompileAction.java
---- a/src/share/classes/com/sun/javatest/regtest/exec/CompileAction.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/exec/CompileAction.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/exec/CompileAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/exec/CompileAction.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/exec/CompileAction.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -50,6 +50,7 @@
  import java.util.concurrent.TimeUnit;
  
@@ -154,7 +155,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/CompileActi
 @@ -521,6 +522,12 @@
          String javacCmd = script.getJavacProg();
  
-         JDKOpts javacVMOpts = new JDKOpts(script.useLongFormOptions());
+         JDKOpts javacVMOpts = new JDKOpts();
 +        ActionCallBack callBack = script.getCallBack();
 +
 +        if (callBack != null) {
@@ -164,9 +165,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/CompileActi
          javacVMOpts.addAll(script.getTestVMOptions());
          if (addDebugOpts && script.getCompileJDK().equals(script.getTestJDK()))
              javacVMOpts.addAll(script.getTestDebugOptions());
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/MainAction.java
---- a/src/share/classes/com/sun/javatest/regtest/exec/MainAction.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/exec/MainAction.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/exec/MainAction.java
+--- a/src/share/classes/com/sun/javatest/regtest/exec/MainAction.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/exec/MainAction.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -42,6 +42,7 @@
  import java.util.concurrent.TimeUnit;
  
@@ -175,7 +176,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/MainAction.
  import com.sun.javatest.regtest.TimeoutHandler;
  import com.sun.javatest.regtest.agent.MainWrapper;
  import com.sun.javatest.regtest.agent.SearchPath;
-@@ -448,6 +449,12 @@
+@@ -446,6 +447,12 @@
          javaOpts.addAll(script.getTestVMJavaOptions());
          javaOpts.addAll(script.getTestDebugOptions());
  
@@ -188,9 +189,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/MainAction.
          Map<String, String> javaProps = new LinkedHashMap<>();
          javaProps.putAll(script.getTestProperties());
  
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/RegressionScript.java
---- a/src/share/classes/com/sun/javatest/regtest/exec/RegressionScript.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/exec/RegressionScript.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/exec/RegressionScript.java
+--- a/src/share/classes/com/sun/javatest/regtest/exec/RegressionScript.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/exec/RegressionScript.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -54,6 +54,7 @@
  import com.sun.javatest.TestEnvironment;
  import com.sun.javatest.TestResult;
@@ -199,7 +200,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/RegressionS
  import com.sun.javatest.regtest.agent.JDK_Version;
  import com.sun.javatest.regtest.agent.SearchPath;
  import com.sun.javatest.regtest.config.ExecMode;
-@@ -1019,6 +1020,10 @@
+@@ -1010,6 +1011,10 @@
          return params.getCompileJDK().getJavacProg().getPath();
      }
  
@@ -210,9 +211,9 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/exec/RegressionS
      //--------------------------------------------------------------------------
  
      // Get the standard properties to be set for tests
-diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/tool/Tool.java
---- a/src/share/classes/com/sun/javatest/regtest/tool/Tool.java	Sun Sep 25 23:18:38 2016 +0200
-+++ b/src/share/classes/com/sun/javatest/regtest/tool/Tool.java	Sun Sep 25 23:19:32 2016 +0200
+diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/tool/Tool.java
+--- a/src/share/classes/com/sun/javatest/regtest/tool/Tool.java	Thu Nov 10 20:09:05 2016 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/tool/Tool.java	Thu Nov 10 20:13:22 2016 +0100
 @@ -72,6 +72,7 @@
  import com.sun.javatest.exec.ExecToolManager;
  import com.sun.javatest.httpd.HttpdServer;
@@ -230,7 +231,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/tool/Tool.java
      /**
       * Standard entry point. Only returns if GUI mode is initiated; otherwise, it calls System.exit
       * with an appropriate exit code.
-@@ -1029,10 +1032,10 @@
+@@ -998,10 +1001,10 @@
              Version requiredVersion = ts.getRequiredVersion();
              Version currentVersion = Version.getCurrent();
              if (requiredVersion.compareTo(currentVersion) > 0) {
@@ -245,7 +246,7 @@ diff -r 8553b01536c1 src/share/classes/com/sun/javatest/regtest/tool/Tool.java
              }
          }
  
-@@ -1639,6 +1642,8 @@
+@@ -1608,6 +1611,8 @@
  
              rp.initExprContext(); // will invoke/init jdk.getProperties(params)
  

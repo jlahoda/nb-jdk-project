@@ -81,14 +81,14 @@
                     <attr name="originalFile" stringvalue="Projects/Actions"/>
                     <attr name="position" intvalue="3100"/>
                 </file>
-<!--                <file name="sep-9.instance">
+                <file name="sep-9.instance">
                     <attr name="instanceClass" stringvalue="javax.swing.JSeparator"/>
                     <attr name="position" intvalue="3200"/>
                 </file>
                 <file name="org-netbeans-modules-project-ui-CustomizeProject.shadow">
                     <attr name="originalFile" stringvalue="Actions/Project/org-netbeans-modules-project-ui-CustomizeProject.instance"/>
                     <attr name="position" intvalue="3300"/>
-                </file>-->
+                </file>
             </folder>
         </folder>
     </folder>

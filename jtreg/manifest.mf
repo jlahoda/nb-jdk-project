@@ -1,5 +1,6 @@
 Manifest-Version: 1.0
 OpenIDE-Module: org.netbeans.modules.jdk.jtreg
 OpenIDE-Module-Localizing-Bundle: org/netbeans/modules/jdk/jtreg/Bundle.properties
-OpenIDE-Module-Specification-Version: 1.33
+OpenIDE-Module-Recommends: jtreg.profiler
+OpenIDE-Module-Specification-Version: 1.37
 

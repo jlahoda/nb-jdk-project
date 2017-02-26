@@ -60,7 +60,6 @@ import javax.swing.event.ChangeEvent;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.java.classpath.GlobalPathRegistry;
-import org.netbeans.api.java.classpath.JavaClassPathConstants;
 import org.netbeans.api.project.libraries.Library;
 import org.netbeans.api.project.libraries.LibraryManager;
 import org.netbeans.modules.jdk.project.JDKProject.Root;
@@ -231,7 +230,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
             if (ClassPath.BOOT.equals(type)) {
                 return ClassPath.EMPTY;
-            } else if (ClassPath.COMPILE.equals(type)) {
+            } else if (ClassPath.COMPILE.equals(type) || MODULE_COMPILE_PATH.equals(type)) {
                 return testsCompileCP;
             }
 

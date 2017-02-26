@@ -295,7 +295,8 @@ public class NativeProjectImpl implements NativeProject {
                         if (line.startsWith("CFLAGS_JDKLIB:=")) {
                             for (String part : line.split("[ ]+")) { //XXX: quoting
                                 if (part.startsWith("-I")) {
-                                    File includeDirFile = new File(part.substring(2));
+                                    String path = part.substring(2).replace("${SUPPORT_OUTPUTDIR}", new File(activeConfig.getLocation(), "support").getAbsolutePath());
+                                    File includeDirFile = FileUtil.normalizeFile(new File(path));
                                     if (listeningOn.add(includeDirFile)) {
                                         FileUtil.addRecursiveListener(fileListener, includeDirFile);
                                     } else {
