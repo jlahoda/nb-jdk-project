@@ -1,0 +1,7 @@
+Manifest-Version: 1.0
+AutoUpdate-Show-In-Client: true
+OpenIDE-Module: org.netbeans.modules.editor.coverage
+OpenIDE-Module-Layer: org/netbeans/modules/editor/coverage/layer.xml
+OpenIDE-Module-Localizing-Bundle: org/netbeans/modules/editor/coverage/Bundle.properties
+OpenIDE-Module-Specification-Version: 1.0
+

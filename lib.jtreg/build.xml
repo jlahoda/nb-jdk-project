@@ -5,7 +5,7 @@
 <project name="org.netbeans.modules.jdk.jtreg.lib" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jdk.jtreg.lib.</description>
     <import file="nbproject/build-impl.xml"/>
-    <target name="build-init" depends="harness.build-init,-download-javatest,-download-asmtools,-download-jtreg">
+    <target name="build-init" depends="harness.build-init,-download-javatest,-download-asmtools,-download-jtreg,-download-jcov,-download-asm">
         <ant dir="asmtools-src-${asmtools.changeset}/build" inheritAll="false" useNativeBasedir="true">
              <target name="clean" />
              <target name="build" />
@@ -30,6 +30,14 @@
              <property name="build.number" value="${jtreg.build.number}" />
         </ant>
         <copy file="${basedir}/jtreg-src-${jtreg.changeset}/dist/jtreg/lib/jtreg.jar" todir="release/modules/ext" />
+        <ant dir="jcov-src-${jcov.changeset}/build" inheritAll="false" useNativeBasedir="true">
+             <target name="clean" />
+             <target name="build" />
+             <property name="asmjar5" location="${basedir}/release/modules/ext/asm.jar" />
+             <property name="javatestjar" location="${basedir}/release/modules/ext/javatest.jar" />
+        </ant>
+        <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov.jar" todir="release/modules/ext" />
+        <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov_network_saver.jar" todir="release/modules/ext" />
     </target>
     <target name="-check-javatest-available">
         <condition property="javatest.available">
@@ -77,5 +85,37 @@
 	    </mapper>
         </unzip>
 	<patch patchfile="${basedir}/hooks.diff" dir="${basedir}/jtreg-src-${jtreg.changeset}" strip="1" />
+    </target>
+    <target name="-check-jcov-available">
+        <condition property="jcov.available">
+             <available file="${basedir}/jcov-src-${jcov.changeset}" />
+        </condition>
+    </target>
+    <target name="-download-jcov" depends="-check-jcov-available" unless="jcov.available">
+        <mkdir dir="${build.dir}" />
+        <property name="jcov.url" value="http://hg.openjdk.java.net/code-tools/jcov/archive/${jcov.changeset}.zip" />
+        <get src="${jcov.url}" dest="${build.dir}/jcov-${jcov.changeset}.zip" usetimestamp="true"/>
+        <unzip src="${build.dir}/jcov-${jcov.changeset}.zip" dest="${basedir}/jcov-src-${jcov.changeset}">
+            <mapper>
+	      <cutdirsmapper dirs="1" />
+	    </mapper>
+        </unzip>
+	<patch patchfile="${basedir}/jcov.diff" dir="${basedir}/jcov-src-${jcov.changeset}" strip="1" />
+    </target>
+    <target name="-check-asm-available">
+        <condition property="asm.available">
+             <available file="${basedir}/release/modules/ext/asm.jar" />
+        </condition>
+    </target>
+    <target name="-download-asm" depends="-check-asm-available" unless="asm.available">
+        <mkdir dir="${build.dir}" />
+        <property name="asm.url" value="http://download.forge.ow2.org/asm/asm-6.0_ALPHA-bin.zip" />
+        <get src="${asm.url}" dest="${build.dir}/asm-6.0_ALPHA-bin.zip" usetimestamp="true"/>
+        <unzip src="${build.dir}/asm-6.0_ALPHA-bin.zip" dest="${build.dir}/asm-bin">
+            <mapper>
+	      <cutdirsmapper dirs="1" />
+	    </mapper>
+        </unzip>
+        <copy file="${build.dir}/asm-bin/lib/all/asm-all-6.0_ALPHA.jar" tofile="release/modules/ext/asm.jar" />
     </target>
 </project>
