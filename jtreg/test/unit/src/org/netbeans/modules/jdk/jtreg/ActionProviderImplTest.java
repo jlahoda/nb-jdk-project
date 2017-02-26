@@ -48,46 +48,19 @@ import java.util.Arrays;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 import java.util.regex.Pattern;
 
-import javax.swing.Action;
-import javax.tools.Diagnostic;
-
-import com.sun.tdk.jcov.instrument.DataRoot;
-import com.sun.tdk.jcov.report.ClassCoverage;
-import com.sun.tdk.jcov.report.CoverageData;
-import com.sun.tdk.jcov.report.DataType;
-import com.sun.tdk.jcov.report.ItemCoverage;
-import com.sun.tdk.jcov.report.MethodCoverage;
-import com.sun.tdk.jcov.report.PackageCoverage;
-import com.sun.tdk.jcov.report.ProductCoverage;
-import static junit.framework.TestCase.assertFalse;
-import static junit.framework.TestCase.assertNotNull;
-import static junit.framework.TestCase.assertTrue;
 import org.netbeans.api.java.classpath.ClassPath;
-import org.netbeans.api.java.source.CompilationController;
-import org.netbeans.api.java.source.JavaSource;
-import org.netbeans.api.java.source.JavaSource.Phase;
-import org.netbeans.api.java.source.SourceUtils;
-import org.netbeans.api.java.source.Task;
 import org.netbeans.api.project.FileOwnerQuery;
 import org.netbeans.api.project.Project;
-import org.netbeans.api.project.ProjectManager;
-import org.netbeans.api.project.ui.OpenProjects;
 import org.netbeans.junit.NbTestCase;
 import org.netbeans.modules.java.hints.test.Utilities.TestLookup;
 import org.netbeans.modules.jdk.jtreg.ActionProviderImpl.StackTraceLine;
-import static org.netbeans.modules.jdk.jtreg.IntegrationTest.finished;
-import static org.netbeans.modules.jdk.jtreg.IntegrationTest.outcome;
 import org.netbeans.modules.jdk.project.common.api.BuildUtils;
-import org.netbeans.spi.project.ActionProgress;
 import org.netbeans.spi.project.ProjectFactory;
 import org.netbeans.spi.project.ProjectState;
 import org.openide.filesystems.FileObject;
 import org.openide.filesystems.FileUtil;
-import org.openide.util.ContextAwareAction;
 import org.openide.util.Lookup;
 import org.openide.util.Pair;
 import org.openide.util.lookup.Lookups;
@@ -250,62 +223,6 @@ public class ActionProviderImplTest extends NbTestCase {
         }
     }
 
-    public void testCoverage() throws IOException, InterruptedException {
-        String repoPath = "/usr/local/home/lahvac/src/jdk/tl/langtools";
-        FileObject repoPathFile = FileUtil.toFileObject(FileUtil.normalizeFile(new File(repoPath)));
-        assertNotNull(repoPathFile);
-        FileObject javaCompilerProjectLocation = repoPathFile.getFileObject("src/java.compiler");
-        assertNotNull(javaCompilerProjectLocation);
-        Project javaCompilerProject = ProjectManager.getDefault().findProject(javaCompilerProjectLocation);
-        assertNotNull(javaCompilerProject);
-
-//        OpenProjects.getDefault().open(new Project[] {javaCompilerProject}, false);
-//
-//        SourceUtils.waitScanFinished();
-
-        FileObject testFile = repoPathFile.getFileObject("test/tools/javac/modules/util/ListBufferTest.java");
-
-//        assertNotNull(testFile);
-//
-//        JavaSource.forFileObject(testFile).runUserActionTask(new Task<CompilationController>() {
-//            @Override
-//            public void run(CompilationController parameter) throws Exception {
-//                parameter.toPhase(Phase.RESOLVED);
-//                boolean hasError = false;
-//                for (Diagnostic d : parameter.getDiagnostics()) {
-//                    hasError |= d.getKind() == Diagnostic.Kind.ERROR;
-//                }
-//                assertFalse(parameter.getDiagnostics().toString(), hasError);
-//            }
-//        }, true);
-
-        ContextAwareAction genericAction = FileUtil.getConfigObject("Actions/Debug/org-netbeans-modules-debugger-ui-actions-DebugTestFileAction.instance", ContextAwareAction.class);
-
-        assertNotNull(genericAction);
-
-        finished = new CountDownLatch(1);
-
-        Action action = genericAction.createContextAwareInstance(Lookups.fixed(testFile, new ActionProgress() {
-            @Override
-            protected void started() {}
-            @Override
-            public void finished(boolean success) {
-                outcome = success;
-                finished.countDown();
-            }
-        }));
-
-        assertTrue(action.isEnabled());
-
-        action.actionPerformed(null);
-
-        assertTrue(finished.await(10, TimeUnit.MINUTES));
-
-        assertTrue(outcome);
-
-//        OpenProjects.getDefault().close(new Project[] {javaCompilerProject});
-    }
-
     private FileObject createDir(String dir) throws IOException {
         FileObject wd = FileUtil.toFileObject(getWorkDir());
         return FileUtil.createFolder(wd, dir);
@@ -377,47 +294,4 @@ public class ActionProviderImplTest extends NbTestCase {
 
     }
 
-    public void XtestInstrument() throws Exception {
-//        String jdkRoot = "/usr/local/home/lahvac/src/jdk/tl";
-//
-//        createDir(jdkRoot).setAttribute(ActionProviderImpl.NB_JDK_PROJECT_BUILD, FileUtil.toFile(createDir("/usr/local/home/lahvac/src/jdk/tl/build/linux-x86_64-normal-server-fastdebug")));
-//
-//        FileObject testFile =
-//        FileOwnerQuery.markExternalOwner(testFile.getParent(), FileOwnerQuery.getOwner(createDir(jdkRoot + "/langtools/src/java.compiler")), FileOwnerQuery.EXTERNAL_ALGORITHM_TRANSIENT);
-//
-//
-//        System.err.println(Class.forName("org.objectweb.asm.ClassReader").getProtectionDomain().getCodeSource().getLocation());
-//        ActionProviderImpl.instrument(new File("/usr/local/home/lahvac/src/jdk/tl/langtools/build/modules"), new File("/usr/local/home/lahvac/src/jdk/tl/langtools/build/nb-jtreg/classes"));
-//        ActionProviderImpl.instrument(new File("/usr/local/home/lahvac/src/jdk/tl/langtools/build/modules/java.compiler/javax/lang/model/element/Modifier.class"), new File("/usr/local/home/lahvac/src/jdk/tl/langtools/build/nb-jtreg/classes"));
-//        ProductCoverage coverage = new ProductCoverage("/tmp/jcov.out");
-//
-//        for (PackageCoverage pcov : coverage.getPackages()) {
-//            if (!pcov.getName().contains("com.sun.tools.javac.comp"))
-//                continue;
-//            for (ClassCoverage ccov : pcov.getClasses()) {
-//                if (!ccov.getFullClassName().contains(".MemberEnter"))
-//                    continue;
-//                System.err.println(" class:" + ccov.getSource());
-//                System.err.println(" class:" + ccov.getFullClassName());
-//                System.err.println(" class:" + ccov.getFullClassNameFilename());
-//                for (MethodCoverage mcov : ccov.getMethods()) {
-////                    mcov.getStartLine()
-//                    System.err.println("mcov: " + mcov.getReadableSignature());
-//                    for (ItemCoverage icov : mcov.getItems()) {
-////                        ccov.
-//                        System.err.println("1. icov: " + icov.getDataType());
-//                        System.err.println("1. icov: " + icov.getSourceLine());
-//                        System.err.println("2. icov: " + icov.getStartLine());
-//                        System.err.println("3. icov: " + icov.getEndLine());
-//                        System.err.println("4. icov: " + icov.getCount());
-//                        CoverageData data = icov.getData(DataType.BLOCK);
-//                        System.err.println("5. icov: " + data + ":" + data.getAnc() + "; " + data.getCovered() + "; " + data.getTotal());
-//                    }
-//                }
-//                System.err.println(" class:" + ccov.getFullClassNameFilename());
-//            }
-//        }
-
-        DataRoot.read("/tmp/jcov.out");
-    }
 }
