@@ -281,6 +281,7 @@ public class ActionProviderImpl implements ActionProvider {
                             File template = new File(jcovDir, "template.xml");
                             jcovData = new File(jcovDir, "jcov");
                             try {
+                                jcovDir.mkdirs();
                                 jcovTempData = File.createTempFile("jcov", "temp", jcovDir);
                             } catch (IOException ex) {
                                 Exceptions.printStackTrace(ex);
@@ -295,13 +296,13 @@ public class ActionProviderImpl implements ActionProvider {
 
                             File fileSaver = InstalledFileLocator.getDefault().locate("modules/ext/jcov_file_saver.jar", "org.netbeans.modules.jdk.jtreg.lib", false);
                             extraVMOptions.addAll(Arrays.asList(
-                                "-Xbootclasspath/a:" + fileSaver.getAbsolutePath(),
+                                "--patch-module=java.base=" + fileSaver.getAbsolutePath(),
                                 "-Djcov.target.file=" + jcovTempData.getAbsolutePath()));
                             for (File module : xPatchClasses.listFiles()) {
-                                extraVMOptions.add("--add-reads=" + module.getName() + "=ALL-UNNAMED");
+                                extraVMOptions.add("--add-exports=java.base/com.sun.tdk.jcov.runtime=" + module.getName());
                             }
 
-                            genXPatchForDir(file, xPatchClasses, options);
+                            genXPatchForDir(file, xPatchClasses, extraVMOptions);
                         } else if (!fullBuild(file)) {
                             File buildClasses = builtClassesDirsForXOverride(file);
                             

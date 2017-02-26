@@ -3786,12 +3786,15 @@ diff --git a/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java b/src/cl
  
  /**
   *
-@@ -61,7 +66,25 @@
+@@ -61,7 +66,28 @@
  
      public void saveResults(String filename) throws Exception {
          //if (isWindows) {
 +        Map<String, List<DataClass>> fileName2Classes = new HashMap<>();
 +        for (DataClass clazz : root.getClasses()) {
++            if (clazz.getSource() == null) {
++                continue; //no source - ignore
++            }
 +            fileName2Classes.computeIfAbsent(clazz.getPackageName().replace('.', '/') + "/" + clazz.getSource().replaceAll(".java$", ""), n -> new ArrayList<>()).add(clazz);
 +        }
 +        for (Entry<String, List<DataClass>> e : fileName2Classes.entrySet()) {
