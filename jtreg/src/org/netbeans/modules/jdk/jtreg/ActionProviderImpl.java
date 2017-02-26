@@ -164,7 +164,8 @@ public class ActionProviderImpl implements ActionProvider {
             @Override
             public void run() {
                 boolean success = false;
-                Grabber g = null;
+                File jcovTempData = null;
+                File jcovData = null;
                 try {
                     try {
                         io.getOut().reset();
@@ -278,7 +279,13 @@ public class ActionProviderImpl implements ActionProvider {
 
                             File xPatchClasses = new File(jcovDir, "instrumented-classes");
                             File template = new File(jcovDir, "template.xml");
-                            File jcovData = new File(jcovDir, "jcov.xml");
+                            jcovData = new File(jcovDir, "jcov");
+                            try {
+                                jcovTempData = File.createTempFile("jcov", "temp", jcovDir);
+                            } catch (IOException ex) {
+                                Exceptions.printStackTrace(ex);
+                                return ;
+                            }
 
                             toRefresh.add(jcovData);
 
@@ -286,29 +293,13 @@ public class ActionProviderImpl implements ActionProvider {
 
                             io.getOut().println(" done.");
 
-                            io.getOut().print("Starting coverage grabber...");
-                            g = new Grabber();
-                            g.setPort(0);
-                            g.setOutputFilename(jcovData.getAbsolutePath());
-                            g.setSaveOnReceive(true);
-                            g.setTemplate(template.getAbsolutePath());
-                            try {
-                                g.createServer();
-                            } catch (IOException ex) {
-                                ex.printStackTrace(io.getErr());
-                                return ;
-                            }
-                            g.startServer();
-                            final int port = g.getServerPort();
-                            File networkSaver = InstalledFileLocator.getDefault().locate("modules/ext/jcov_network_saver.jar", "org.netbeans.modules.jdk.jtreg.lib", false);
+                            File fileSaver = InstalledFileLocator.getDefault().locate("modules/ext/jcov_file_saver.jar", "org.netbeans.modules.jdk.jtreg.lib", false);
                             extraVMOptions.addAll(Arrays.asList(
-                                "-Xbootclasspath/a:" + networkSaver.getAbsolutePath(),
-                                "-Djcov.port=" + port));
+                                "-Xbootclasspath/a:" + fileSaver.getAbsolutePath(),
+                                "-Djcov.target.file=" + jcovTempData.getAbsolutePath()));
                             for (File module : xPatchClasses.listFiles()) {
                                 extraVMOptions.add("--add-reads=" + module.getName() + "=ALL-UNNAMED");
                             }
-
-                            io.getOut().println(" done.");
 
                             genXPatchForDir(file, xPatchClasses, options);
                         } else if (!fullBuild(file)) {
@@ -368,7 +359,9 @@ public class ActionProviderImpl implements ActionProvider {
                         stop.finished();
                     }
                 } finally {
-                    if (g != null) g.stopServer(false);
+                    if (jcovTempData != null) {
+                        jcovTempData.renameTo(jcovData);
+                    }
                     io.getOut().close();
                     io.getErr().close();
                     try {

@@ -1,18 +1,20 @@
 # HG changeset patch
 # Parent  1fca3f09b1ce426986c9e7b9b587700ad159ce67
 
-diff -r 1fca3f09b1ce .hgignore
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/.hgignore	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/.hgignore b/.hgignore
+new file mode 100644
+--- /dev/null
++++ b/.hgignore
 @@ -0,0 +1,5 @@
 +JCOV_BUILD
 +nbproject/private/
 +build/private.properties
 +build-nb/
 +dist/
-diff -r 1fca3f09b1ce build.xml
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/build.xml	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/build.xml b/build.xml
+new file mode 100644
+--- /dev/null
++++ b/build.xml
 @@ -0,0 +1,73 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +<!-- You may freely edit this file. See commented blocks below for -->
@@ -87,9 +89,9 @@ diff -r 1fca3f09b1ce build.xml
 +
 +    -->
 +</project>
-diff -r 1fca3f09b1ce build/build.properties
---- a/build/build.properties	Tue Mar 01 15:57:49 2016 +0300
-+++ b/build/build.properties	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/build/build.properties b/build/build.properties
+--- a/build/build.properties
++++ b/build/build.properties
 @@ -22,9 +22,9 @@
  # questions.
  
@@ -102,9 +104,9 @@ diff -r 1fca3f09b1ce build/build.properties
  
  # path to output directory
  result.dir =../JCOV_BUILD
-diff -r 1fca3f09b1ce build/build.xml
---- a/build/build.xml	Tue Mar 01 15:57:49 2016 +0300
-+++ b/build/build.xml	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/build/build.xml b/build/build.xml
+--- a/build/build.xml
++++ b/build/build.xml
 @@ -27,12 +27,13 @@
  
  <project name="JCov" default="build" basedir=".">
@@ -120,7 +122,15 @@ diff -r 1fca3f09b1ce build/build.xml
  
      <!-- Temp dir is for files which do not appear in release directory -->
      <property name="tmp.dir" location="${result.dir}/temp"/>
-@@ -159,13 +160,13 @@
+@@ -62,6 +63,7 @@
+         <include name="com/sun/tdk/jcov/util/MapHelper.*"/>
+         <include name="com/sun/tdk/jcov/util/RuntimeUtils.*"/>
+         <include name="com/sun/tdk/jcov/runtime/TemplateFileSaver*"/>
++        <include name="com/sun/tdk/jcov/runtime/DumpSaver*"/>
+         <include name="com/sun/tdk/jcov/util/MapHelper.*"/>
+         <include name="com/sun/tdk/jcov/constants/MiscConstants*"/>
+     </patternset>
+@@ -159,13 +161,13 @@
      <target name="compile"  depends="prepare, build-date"
              description="compile main tools">
  
@@ -136,7 +146,7 @@ diff -r 1fca3f09b1ce build/build.xml
                 srcdir="${src.dir}"
                 destdir="${jcov.classes}"
                 classpath="${jcov.classpath}">
-@@ -232,11 +233,11 @@
+@@ -232,11 +234,11 @@
                      <replaceregex pattern="@\*\/" replace="@"/>
                  </tokenfilter>
                  <filterreader classname="org.apache.tools.ant.filters.ReplaceTokens">
@@ -150,7 +160,7 @@ diff -r 1fca3f09b1ce build/build.xml
                 srcdir="${jcov.filesaver.src}"
                 sourcepath=""
                 classpath="${jcov.filesaver.classes}"
-@@ -266,11 +267,11 @@
+@@ -266,11 +268,11 @@
                      <replaceregex pattern="@\*\/" replace="@"/>
                  </tokenfilter>
                  <filterreader classname="org.apache.tools.ant.filters.ReplaceTokens">
@@ -164,17 +174,30 @@ diff -r 1fca3f09b1ce build/build.xml
                 srcdir="${jcov.networksaver.src}"
                 sourcepath=""
                 classpath="${jcov.networksaver.classes}"
-diff -r 1fca3f09b1ce manifest.mf
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/manifest.mf	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/build/filesaver.replace.properties b/build/filesaver.replace.properties
+--- a/build/filesaver.replace.properties
++++ b/build/filesaver.replace.properties
+@@ -21,4 +21,4 @@
+ # or visit www.oracle.com if you need additional information or have any
+ # questions.
+ 
+-BUILD_MODIFIED_SAVER_STRING = com.sun.tdk.jcov.runtime.TemplateFileSaver
+\ No newline at end of file
++BUILD_MODIFIED_SAVER_STRING = com.sun.tdk.jcov.runtime.DumpSaver
+\ No newline at end of file
+diff --git a/manifest.mf b/manifest.mf
+new file mode 100644
+--- /dev/null
++++ b/manifest.mf
 @@ -0,0 +1,3 @@
 +Manifest-Version: 1.0
 +X-COMMENT: Main-Class will be added automatically by build
 +
-diff -r 1fca3f09b1ce nbproject/build-impl.xml
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/nbproject/build-impl.xml	Thu Nov 03 22:10:57 2016 +0100
-@@ -0,0 +1,1422 @@
+diff --git a/nbproject/build-impl.xml b/nbproject/build-impl.xml
+new file mode 100644
+--- /dev/null
++++ b/nbproject/build-impl.xml
+@@ -0,0 +1,1654 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +<!--
 +*** GENERATED FROM project.xml - DO NOT EDIT  ***
@@ -230,7 +253,70 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +        <property file="nbproject/configs/${config}.properties"/>
 +        <property file="nbproject/project.properties"/>
 +    </target>
-+    <target depends="-pre-init,-init-private,-init-user,-init-project,-init-macrodef-property" name="-do-init">
++    <target name="-init-modules-supported">
++        <condition property="modules.supported.internal" value="true">
++            <not>
++                <matches pattern="1\.[0-8](\..*)?" string="${javac.source}"/>
++            </not>
++        </condition>
++    </target>
++    <target depends="-init-modules-supported" if="modules.supported.internal" name="-init-macrodef-modulename">
++        <macrodef name="modulename" uri="http://www.netbeans.org/ns/j2se-project/3">
++            <attribute name="property"/>
++            <attribute name="sourcepath"/>
++            <sequential>
++                <loadresource property="@{property}" quiet="true">
++                    <javaresource classpath="@{sourcepath}" name="module-info.java" parentFirst="false"/>
++                    <filterchain>
++                        <stripjavacomments/>
++                        <linecontainsregexp>
++                            <regexp pattern="module .* \{"/>
++                        </linecontainsregexp>
++                        <tokenfilter>
++                            <linetokenizer/>
++                            <replaceregex flags="s" pattern="(\s*module\s+)(\S*)(\s*\{.*)" replace="\2"/>
++                        </tokenfilter>
++                        <striplinebreaks/>
++                    </filterchain>
++                </loadresource>
++            </sequential>
++        </macrodef>
++    </target>
++    <target depends="-init-modules-supported,-init-macrodef-modulename" if="modules.supported.internal" name="-init-source-module-properties">
++        <fail message="Java 9 support requires Ant 1.10.0 or higher.">
++            <condition>
++                <not>
++                    <antversion atleast="1.10.0"/>
++                </not>
++            </condition>
++        </fail>
++        <j2seproject3:modulename property="module.name" sourcepath="${src.classes.dir}"/>
++        <condition property="named.module.internal">
++            <and>
++                <isset property="module.name"/>
++                <length length="0" string="${module.name}" when="greater"/>
++            </and>
++        </condition>
++        <condition property="unnamed.module.internal">
++            <not>
++                <isset property="named.module.internal"/>
++            </not>
++        </condition>
++        <property name="javac.modulepath" value=""/>
++        <property name="run.modulepath" value="${javac.modulepath}"/>
++        <property name="module.build.classes.dir" value="${build.classes.dir}"/>
++        <property name="debug.modulepath" value="${run.modulepath}"/>
++        <property name="javac.upgrademodulepath" value=""/>
++        <property name="run.upgrademodulepath" value="${javac.upgrademodulepath}"/>
++        <condition else="" property="javac.systemmodulepath.cmd.line.arg" value="--system '${javac.systemmodulepath}'">
++            <and>
++                <isset property="javac.systemmodulepath"/>
++                <length length="0" string="${javac.systemmodulepath}" when="greater"/>
++            </and>
++        </condition>
++        <property name="module.name" value=""/>
++    </target>
++    <target depends="-pre-init,-init-private,-init-user,-init-project,-init-macrodef-property,-init-modules-supported" name="-do-init">
 +        <property name="platform.java" value="${java.home}/bin/java"/>
 +        <available file="${manifest.file}" property="manifest.available"/>
 +        <condition property="splashscreen.available">
@@ -253,7 +339,9 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            <and>
 +                <isset property="javac.profile"/>
 +                <length length="0" string="${javac.profile}" when="greater"/>
-+                <matches pattern="((1\.[89])|9)(\..*)?" string="${javac.source}"/>
++                <not>
++                    <matches pattern="1\.[0-7](\..*)?" string="${javac.source}"/>
++                </not>
 +            </and>
 +        </condition>
 +        <condition property="do.archive">
@@ -270,6 +358,9 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +                <isset property="libs.CopyLibs.classpath"/>
 +                <not>
 +                    <istrue value="${mkdist.disabled}"/>
++                </not>
++                <not>
++                    <istrue value="${modules.supported.internal}"/>
 +                </not>
 +            </and>
 +        </condition>
@@ -427,11 +518,62 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </sequential>
 +        </macrodef>
 +    </target>
-+    <target depends="-init-ap-cmdline-properties" if="ap.supported.internal" name="-init-macrodef-javac-with-processors">
++    <target depends="-init-ap-cmdline-properties,-init-source-module-properties" if="modules.supported.internal" name="-init-macrodef-javac-with-module">
 +        <macrodef name="javac" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${src.classes.dir}" name="srcdir"/>
 +            <attribute default="${build.classes.dir}" name="destdir"/>
 +            <attribute default="${javac.classpath}" name="classpath"/>
++            <attribute default="${javac.modulepath}" name="modulepath"/>
++            <attribute default="${javac.upgrademodulepath}" name="upgrademodulepath"/>
++            <attribute default="${javac.processorpath}" name="processorpath"/>
++            <attribute default="${build.generated.sources.dir}/ap-source-output" name="apgeneratedsrcdir"/>
++            <attribute default="${includes}" name="includes"/>
++            <attribute default="${excludes}" name="excludes"/>
++            <attribute default="${javac.debug}" name="debug"/>
++            <attribute default="${empty.dir}" name="sourcepath"/>
++            <attribute default="${empty.dir}" name="gensrcdir"/>
++            <element name="customize" optional="true"/>
++            <sequential>
++                <property location="${build.dir}/empty" name="empty.dir"/>
++                <mkdir dir="${empty.dir}"/>
++                <mkdir dir="@{apgeneratedsrcdir}"/>
++                <javac debug="@{debug}" deprecation="${javac.deprecation}" destdir="@{destdir}" encoding="${source.encoding}" excludes="@{excludes}" fork="${javac.fork}" includeantruntime="false" includes="@{includes}" source="${javac.source}" sourcepath="@{sourcepath}" srcdir="@{srcdir}" target="${javac.target}" tempdir="${java.io.tmpdir}">
++                    <src>
++                        <dirset dir="@{gensrcdir}" erroronmissingdir="false">
++                            <include name="*"/>
++                        </dirset>
++                    </src>
++                    <classpath>
++                        <path path="@{classpath}"/>
++                    </classpath>
++                    <modulepath>
++                        <path path="@{modulepath}"/>
++                    </modulepath>
++                    <upgrademodulepath>
++                        <path path="@{upgrademodulepath}"/>
++                    </upgrademodulepath>
++                    <compilerarg line="${javac.systemmodulepath.cmd.line.arg}"/>
++                    <compilerarg line="${javac.profile.cmd.line.arg}"/>
++                    <compilerarg line="${javac.compilerargs}"/>
++                    <compilerarg value="-processorpath"/>
++                    <compilerarg path="@{processorpath}:${empty.dir}"/>
++                    <compilerarg line="${ap.processors.internal}"/>
++                    <compilerarg line="${annotation.processing.processor.options}"/>
++                    <compilerarg value="-s"/>
++                    <compilerarg path="@{apgeneratedsrcdir}"/>
++                    <compilerarg line="${ap.proc.none.internal}"/>
++                    <customize/>
++                </javac>
++            </sequential>
++        </macrodef>
++    </target>
++    <target depends="-init-ap-cmdline-properties,-init-source-module-properties" if="ap.supported.internal" name="-init-macrodef-javac-with-processors" unless="modules.supported.internal">
++        <macrodef name="javac" uri="http://www.netbeans.org/ns/j2se-project/3">
++            <attribute default="${src.classes.dir}" name="srcdir"/>
++            <attribute default="${build.classes.dir}" name="destdir"/>
++            <attribute default="${javac.classpath}" name="classpath"/>
++            <attribute default="${javac.modulepath}" name="modulepath"/>
++            <attribute default="${javac.upgrademodulepath}" name="upgrademodulepath"/>
 +            <attribute default="${javac.processorpath}" name="processorpath"/>
 +            <attribute default="${build.generated.sources.dir}/ap-source-output" name="apgeneratedsrcdir"/>
 +            <attribute default="${includes}" name="includes"/>
@@ -468,11 +610,13 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </sequential>
 +        </macrodef>
 +    </target>
-+    <target depends="-init-ap-cmdline-properties" name="-init-macrodef-javac-without-processors" unless="ap.supported.internal">
++    <target depends="-init-ap-cmdline-properties,-init-source-module-properties" name="-init-macrodef-javac-without-processors" unless="ap.supported.internal">
 +        <macrodef name="javac" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${src.classes.dir}" name="srcdir"/>
 +            <attribute default="${build.classes.dir}" name="destdir"/>
 +            <attribute default="${javac.classpath}" name="classpath"/>
++            <attribute default="${javac.modulepath}" name="modulepath"/>
++            <attribute default="${javac.upgrademodulepath}" name="upgrademodulepath"/>
 +            <attribute default="${javac.processorpath}" name="processorpath"/>
 +            <attribute default="${build.generated.sources.dir}/ap-source-output" name="apgeneratedsrcdir"/>
 +            <attribute default="${includes}" name="includes"/>
@@ -501,7 +645,7 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </sequential>
 +        </macrodef>
 +    </target>
-+    <target depends="-init-macrodef-javac-with-processors,-init-macrodef-javac-without-processors" name="-init-macrodef-javac">
++    <target depends="-init-macrodef-javac-with-module,-init-macrodef-javac-with-processors,-init-macrodef-javac-without-processors" name="-init-macrodef-javac">
 +        <macrodef name="depend" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${src.classes.dir}" name="srcdir"/>
 +            <attribute default="${build.classes.dir}" name="destdir"/>
@@ -556,30 +700,59 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +        <property name="test.binarytestincludes" value=""/>
 +        <property name="test.binaryexcludes" value=""/>
 +    </target>
-+    <target if="${nb.junit.single}" name="-init-macrodef-junit-single" unless="${nb.junit.batch}">
-+        <macrodef name="junit" uri="http://www.netbeans.org/ns/j2se-project/3">
++    <target depends="-init-modules-supported" if="modules.supported.internal" name="-init-macrodef-junit-prototype-with-module">
++        <macrodef name="junit-prototype" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${includes}" name="includes"/>
 +            <attribute default="${excludes}" name="excludes"/>
-+            <attribute default="**" name="testincludes"/>
-+            <attribute default="" name="testmethods"/>
-+            <element name="customize" optional="true"/>
++            <element name="customizePrototype" optional="true"/>
 +            <sequential>
 +                <property name="junit.forkmode" value="perTest"/>
 +                <junit dir="${work.dir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" forkmode="${junit.forkmode}" showoutput="true" tempdir="${build.dir}">
-+                    <test methods="@{testmethods}" name="@{testincludes}" todir="${build.test.results.dir}"/>
 +                    <syspropertyset>
 +                        <propertyref prefix="test-sys-prop."/>
 +                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
 +                    </syspropertyset>
++                    <classpath>
++                        <path path="${run.test.classpath}"/>
++                    </classpath>
++                    <modulepath>
++                        <path path="${run.test.modulepath}"/>
++                    </modulepath>
 +                    <formatter type="brief" usefile="false"/>
 +                    <formatter type="xml"/>
++                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
 +                    <jvmarg value="-ea"/>
-+                    <customize/>
++                    <jvmarg line="${run.test.jvmargs}"/>
++                    <customizePrototype/>
 +                </junit>
 +            </sequential>
 +        </macrodef>
 +    </target>
-+    <target depends="-init-test-properties" if="${nb.junit.batch}" name="-init-macrodef-junit-batch" unless="${nb.junit.single}">
++    <target depends="-init-modules-supported" name="-init-macrodef-junit-prototype-without-module" unless="modules.supported.internal">
++        <macrodef name="junit-prototype" uri="http://www.netbeans.org/ns/j2se-project/3">
++            <attribute default="${includes}" name="includes"/>
++            <attribute default="${excludes}" name="excludes"/>
++            <element name="customizePrototype" optional="true"/>
++            <sequential>
++                <property name="junit.forkmode" value="perTest"/>
++                <junit dir="${work.dir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" forkmode="${junit.forkmode}" showoutput="true" tempdir="${build.dir}">
++                    <syspropertyset>
++                        <propertyref prefix="test-sys-prop."/>
++                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
++                    </syspropertyset>
++                    <classpath>
++                        <path path="${run.test.classpath}"/>
++                    </classpath>
++                    <formatter type="brief" usefile="false"/>
++                    <formatter type="xml"/>
++                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
++                    <jvmarg value="-ea"/>
++                    <customizePrototype/>
++                </junit>
++            </sequential>
++        </macrodef>
++    </target>
++    <target depends="-init-test-properties,-init-macrodef-junit-prototype-with-module,-init-macrodef-junit-prototype-without-module" if="${nb.junit.single}" name="-init-macrodef-junit-single" unless="${nb.junit.batch}">
 +        <macrodef name="junit" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${includes}" name="includes"/>
 +            <attribute default="${excludes}" name="excludes"/>
@@ -587,25 +760,36 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            <attribute default="" name="testmethods"/>
 +            <element name="customize" optional="true"/>
 +            <sequential>
-+                <property name="junit.forkmode" value="perTest"/>
-+                <junit dir="${work.dir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" forkmode="${junit.forkmode}" showoutput="true" tempdir="${build.dir}">
-+                    <batchtest todir="${build.test.results.dir}">
-+                        <fileset dir="${test.src.dir}" excludes="@{excludes},${excludes}" includes="@{includes}">
-+                            <filename name="@{testincludes}"/>
-+                        </fileset>
-+                        <fileset dir="${build.test.classes.dir}" excludes="@{excludes},${excludes},${test.binaryexcludes}" includes="${test.binaryincludes}">
-+                            <filename name="${test.binarytestincludes}"/>
-+                        </fileset>
-+                    </batchtest>
-+                    <syspropertyset>
-+                        <propertyref prefix="test-sys-prop."/>
-+                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
-+                    </syspropertyset>
-+                    <formatter type="brief" usefile="false"/>
-+                    <formatter type="xml"/>
-+                    <jvmarg value="-ea"/>
-+                    <customize/>
-+                </junit>
++                <j2seproject3:junit-prototype>
++                    <customizePrototype>
++                        <test methods="@{testmethods}" name="@{testincludes}" todir="${build.test.results.dir}"/>
++                        <customize/>
++                    </customizePrototype>
++                </j2seproject3:junit-prototype>
++            </sequential>
++        </macrodef>
++    </target>
++    <target depends="-init-test-properties,-init-macrodef-junit-prototype-with-module,-init-macrodef-junit-prototype-without-module" if="${nb.junit.batch}" name="-init-macrodef-junit-batch" unless="${nb.junit.single}">
++        <macrodef name="junit" uri="http://www.netbeans.org/ns/j2se-project/3">
++            <attribute default="${includes}" name="includes"/>
++            <attribute default="${excludes}" name="excludes"/>
++            <attribute default="**" name="testincludes"/>
++            <attribute default="" name="testmethods"/>
++            <element name="customize" optional="true"/>
++            <sequential>
++                <j2seproject3:junit-prototype>
++                    <customizePrototype>
++                        <batchtest todir="${build.test.results.dir}">
++                            <fileset dir="${test.src.dir}" excludes="@{excludes},${excludes}" includes="@{includes}">
++                                <filename name="@{testincludes}"/>
++                            </fileset>
++                            <fileset dir="${build.test.classes.dir}" excludes="@{excludes},${excludes},${test.binaryexcludes}" includes="${test.binaryincludes}">
++                                <filename name="${test.binarytestincludes}"/>
++                            </fileset>
++                        </batchtest>
++                        <customize/>
++                    </customizePrototype>
++                </j2seproject3:junit-prototype>
 +            </sequential>
 +        </macrodef>
 +    </target>
@@ -633,6 +817,10 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +                        <propertyref prefix="test-sys-prop."/>
 +                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
 +                    </propertyset>
++                    <classpath>
++                        <path path="${run.test.classpath}"/>
++                    </classpath>
++                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
 +                    <customize/>
 +                </testng>
 +            </sequential>
@@ -687,10 +875,6 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            <sequential>
 +                <j2seproject3:test-impl excludes="@{excludes}" includes="@{includes}" testincludes="@{testincludes}" testmethods="@{testmethods}">
 +                    <customize>
-+                        <classpath>
-+                            <path path="${run.test.classpath}"/>
-+                        </classpath>
-+                        <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
 +                        <jvmarg line="${run.jvmargs}"/>
 +                        <jvmarg line="${run.jvmargs.ide}"/>
 +                    </customize>
@@ -698,74 +882,21 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </sequential>
 +        </macrodef>
 +    </target>
-+    <target if="${junit.available}" name="-init-macrodef-junit-debug" unless="${nb.junit.batch}">
-+        <macrodef name="junit-debug" uri="http://www.netbeans.org/ns/j2se-project/3">
-+            <attribute default="${includes}" name="includes"/>
-+            <attribute default="${excludes}" name="excludes"/>
-+            <attribute default="**" name="testincludes"/>
-+            <attribute default="" name="testmethods"/>
-+            <element name="customize" optional="true"/>
-+            <sequential>
-+                <property name="junit.forkmode" value="perTest"/>
-+                <junit dir="${work.dir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" forkmode="${junit.forkmode}" showoutput="true" tempdir="${build.dir}">
-+                    <test methods="@{testmethods}" name="@{testincludes}" todir="${build.test.results.dir}"/>
-+                    <syspropertyset>
-+                        <propertyref prefix="test-sys-prop."/>
-+                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
-+                    </syspropertyset>
-+                    <formatter type="brief" usefile="false"/>
-+                    <formatter type="xml"/>
-+                    <jvmarg value="-ea"/>
-+                    <jvmarg line="${debug-args-line}"/>
-+                    <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
-+                    <customize/>
-+                </junit>
-+            </sequential>
-+        </macrodef>
-+    </target>
-+    <target depends="-init-test-properties" if="${nb.junit.batch}" name="-init-macrodef-junit-debug-batch">
-+        <macrodef name="junit-debug" uri="http://www.netbeans.org/ns/j2se-project/3">
-+            <attribute default="${includes}" name="includes"/>
-+            <attribute default="${excludes}" name="excludes"/>
-+            <attribute default="**" name="testincludes"/>
-+            <attribute default="" name="testmethods"/>
-+            <element name="customize" optional="true"/>
-+            <sequential>
-+                <property name="junit.forkmode" value="perTest"/>
-+                <junit dir="${work.dir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" forkmode="${junit.forkmode}" showoutput="true" tempdir="${build.dir}">
-+                    <batchtest todir="${build.test.results.dir}">
-+                        <fileset dir="${test.src.dir}" excludes="@{excludes},${excludes}" includes="@{includes}">
-+                            <filename name="@{testincludes}"/>
-+                        </fileset>
-+                        <fileset dir="${build.test.classes.dir}" excludes="@{excludes},${excludes},${test.binaryexcludes}" includes="${test.binaryincludes}">
-+                            <filename name="${test.binarytestincludes}"/>
-+                        </fileset>
-+                    </batchtest>
-+                    <syspropertyset>
-+                        <propertyref prefix="test-sys-prop."/>
-+                        <mapper from="test-sys-prop.*" to="*" type="glob"/>
-+                    </syspropertyset>
-+                    <formatter type="brief" usefile="false"/>
-+                    <formatter type="xml"/>
-+                    <jvmarg value="-ea"/>
-+                    <jvmarg line="${debug-args-line}"/>
-+                    <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
-+                    <customize/>
-+                </junit>
-+            </sequential>
-+        </macrodef>
-+    </target>
-+    <target depends="-init-macrodef-junit-debug,-init-macrodef-junit-debug-batch" if="${junit.available}" name="-init-macrodef-junit-debug-impl">
++    <target depends="-init-macrodef-junit" if="${junit.available}" name="-init-macrodef-junit-debug-impl">
 +        <macrodef name="test-debug-impl" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${includes}" name="includes"/>
 +            <attribute default="${excludes}" name="excludes"/>
 +            <attribute default="**" name="testincludes"/>
 +            <attribute default="" name="testmethods"/>
-+            <element implicit="true" name="customize" optional="true"/>
++            <element name="customizeDebuggee" optional="true"/>
 +            <sequential>
-+                <j2seproject3:junit-debug excludes="@{excludes}" includes="@{includes}" testincludes="@{testincludes}" testmethods="@{testmethods}">
-+                    <customize/>
-+                </j2seproject3:junit-debug>
++                <j2seproject3:junit excludes="@{excludes}" includes="@{includes}" testincludes="@{testincludes}" testmethods="@{testmethods}">
++                    <customize>
++                        <jvmarg line="${debug-args-line}"/>
++                        <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
++                        <customizeDebuggee/>
++                    </customize>
++                </j2seproject3:junit>
 +            </sequential>
 +        </macrodef>
 +    </target>
@@ -784,14 +915,14 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +                <delete dir="${build.test.results.dir}" quiet="true"/>
 +                <mkdir dir="${build.test.results.dir}"/>
 +                <j2seproject3:debug classname="org.testng.TestNG" classpath="${debug.test.classpath}">
-+                    <customize>
++                    <customizeDebuggee>
 +                        <customize2/>
 +                        <jvmarg value="-ea"/>
 +                        <arg line="${testng.debug.mode}"/>
 +                        <arg line="-d ${build.test.results.dir}"/>
 +                        <arg line="-listener org.testng.reporters.VerboseReporter"/>
 +                        <arg line="${testng.cmd.args}"/>
-+                    </customize>
++                    </customizeDebuggee>
 +                </j2seproject3:debug>
 +            </sequential>
 +        </macrodef>
@@ -818,14 +949,10 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            <attribute default="" name="testMethod"/>
 +            <sequential>
 +                <j2seproject3:test-debug-impl excludes="@{excludes}" includes="@{includes}" testincludes="@{testincludes}" testmethods="@{testmethods}">
-+                    <customize>
-+                        <classpath>
-+                            <path path="${run.test.classpath}"/>
-+                        </classpath>
-+                        <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
++                    <customizeDebuggee>
 +                        <jvmarg line="${run.jvmargs}"/>
 +                        <jvmarg line="${run.jvmargs.ide}"/>
-+                    </customize>
++                    </customizeDebuggee>
 +                </j2seproject3:test-debug-impl>
 +            </sequential>
 +        </macrodef>
@@ -905,10 +1032,14 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="-init-debug-args" name="-init-macrodef-nbjpda">
 +        <macrodef name="nbjpdastart" uri="http://www.netbeans.org/ns/j2se-project/1">
 +            <attribute default="${main.class}" name="name"/>
++            <attribute default="${debug.modulepath}" name="modulepath"/>
 +            <attribute default="${debug.classpath}" name="classpath"/>
 +            <attribute default="" name="stopclassname"/>
 +            <sequential>
 +                <nbjpdastart addressproperty="jpda.address" name="@{name}" stopclassname="@{stopclassname}" transport="${debug-transport}">
++                    <modulepath>
++                        <path path="@{modulepath}"/>
++                    </modulepath>
 +                    <classpath>
 +                        <path path="@{classpath}"/>
 +                    </classpath>
@@ -948,21 +1079,47 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    </target>
 +    <target depends="-init-debug-args" name="-init-macrodef-debug">
 +        <macrodef name="debug" uri="http://www.netbeans.org/ns/j2se-project/3">
++            <attribute default="${module.name}" name="modulename"/>
 +            <attribute default="${main.class}" name="classname"/>
++            <attribute default="${debug.modulepath}" name="modulepath"/>
 +            <attribute default="${debug.classpath}" name="classpath"/>
++            <element name="customizeDebuggee" optional="true"/>
++            <sequential>
++                <j2seproject1:java classname="@{classname}" classpath="@{classpath}" modulename="@{modulename}" modulepath="@{modulepath}">
++                    <customize>
++                        <jvmarg line="${debug-args-line}"/>
++                        <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
++                        <customizeDebuggee/>
++                    </customize>
++                </j2seproject1:java>
++            </sequential>
++        </macrodef>
++    </target>
++    <target depends="-init-source-module-properties" if="named.module.internal" name="-init-macrodef-java-with-module">
++        <macrodef name="java" uri="http://www.netbeans.org/ns/j2se-project/1">
++            <attribute default="${module.name}" name="modulename"/>
++            <attribute default="${main.class}" name="classname"/>
++            <attribute default="${run.modulepath}" name="modulepath"/>
++            <attribute default="${run.upgrademodulepath}" name="upgrademodulepath"/>
++            <attribute default="${run.classpath}" name="classpath"/>
++            <attribute default="jvm" name="jvm"/>
 +            <element name="customize" optional="true"/>
 +            <sequential>
-+                <java classname="@{classname}" dir="${work.dir}" failonerror="${java.failonerror}" fork="true">
-+                    <jvmarg line="${endorsed.classpath.cmd.line.arg}"/>
-+                    <jvmarg line="${debug-args-line}"/>
-+                    <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
++                <java classname="@{classname}" dir="${work.dir}" failonerror="${java.failonerror}" fork="true" module="@{modulename}">
++                    <classpath>
++                        <path path="@{classpath}"/>
++                    </classpath>
++                    <modulepath>
++                        <pathelement path="@{modulepath}"/>
++                        <pathelement location="${module.build.classes.dir}"/>
++                    </modulepath>
++                    <upgrademodulepath>
++                        <path path="@{upgrademodulepath}"/>
++                    </upgrademodulepath>
 +                    <jvmarg value="-Dfile.encoding=${runtime.encoding}"/>
 +                    <redirector errorencoding="${runtime.encoding}" inputencoding="${runtime.encoding}" outputencoding="${runtime.encoding}"/>
 +                    <jvmarg line="${run.jvmargs}"/>
 +                    <jvmarg line="${run.jvmargs.ide}"/>
-+                    <classpath>
-+                        <path path="@{classpath}"/>
-+                    </classpath>
 +                    <syspropertyset>
 +                        <propertyref prefix="run-sys-prop."/>
 +                        <mapper from="run-sys-prop.*" to="*" type="glob"/>
@@ -972,9 +1129,44 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </sequential>
 +        </macrodef>
 +    </target>
-+    <target name="-init-macrodef-java">
++    <target depends="-init-source-module-properties" if="unnamed.module.internal" name="-init-macrodef-java-with-unnamed-module">
 +        <macrodef name="java" uri="http://www.netbeans.org/ns/j2se-project/1">
++            <attribute default="" name="modulename"/>
 +            <attribute default="${main.class}" name="classname"/>
++            <attribute default="${run.modulepath}" name="modulepath"/>
++            <attribute default="${run.upgrademodulepath}" name="upgrademodulepath"/>
++            <attribute default="${run.classpath}" name="classpath"/>
++            <attribute default="jvm" name="jvm"/>
++            <element name="customize" optional="true"/>
++            <sequential>
++                <java classname="@{classname}" dir="${work.dir}" failonerror="${java.failonerror}" fork="true">
++                    <classpath>
++                        <path path="@{classpath}"/>
++                    </classpath>
++                    <modulepath>
++                        <path path="@{modulepath}"/>
++                    </modulepath>
++                    <upgrademodulepath>
++                        <path path="@{upgrademodulepath}"/>
++                    </upgrademodulepath>
++                    <jvmarg value="-Dfile.encoding=${runtime.encoding}"/>
++                    <redirector errorencoding="${runtime.encoding}" inputencoding="${runtime.encoding}" outputencoding="${runtime.encoding}"/>
++                    <jvmarg line="${run.jvmargs}"/>
++                    <jvmarg line="${run.jvmargs.ide}"/>
++                    <syspropertyset>
++                        <propertyref prefix="run-sys-prop."/>
++                        <mapper from="run-sys-prop.*" to="*" type="glob"/>
++                    </syspropertyset>
++                    <customize/>
++                </java>
++            </sequential>
++        </macrodef>
++    </target>
++    <target depends="-init-source-module-properties" name="-init-macrodef-java-without-module" unless="modules.supported.internal">
++        <macrodef name="java" uri="http://www.netbeans.org/ns/j2se-project/1">
++            <attribute default="" name="modulename"/>
++            <attribute default="${main.class}" name="classname"/>
++            <attribute default="" name="modulepath"/>
 +            <attribute default="${run.classpath}" name="classpath"/>
 +            <attribute default="jvm" name="jvm"/>
 +            <element name="customize" optional="true"/>
@@ -997,6 +1189,7 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </sequential>
 +        </macrodef>
 +    </target>
++    <target depends="-init-macrodef-java-with-module, -init-macrodef-java-with-unnamed-module, -init-macrodef-java-without-module" name="-init-macrodef-java"/>
 +    <target name="-init-macrodef-copylibs">
 +        <macrodef name="copylibs" uri="http://www.netbeans.org/ns/j2se-project/3">
 +            <attribute default="${manifest.file}" name="manifest"/>
@@ -1129,7 +1322,7 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="init,deps-jar,-pre-pre-compile" name="-do-compile-single">
 +        <fail unless="javac.includes">Must select some files in the IDE or set javac.includes</fail>
 +        <j2seproject3:force-recompile/>
-+        <j2seproject3:javac excludes="" gensrcdir="${build.generated.sources.dir}" includes="${javac.includes}" sourcepath="${src.classes.dir}"/>
++        <j2seproject3:javac excludes="" gensrcdir="${build.generated.sources.dir}" includes="${javac.includes}, module-info.java" sourcepath="${src.classes.dir}"/>
 +    </target>
 +    <target name="-post-compile-single">
 +        <!-- Empty placeholder for easier customization. -->
@@ -1189,7 +1382,23 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            <path path="${run.classpath}"/>
 +            <map from="${build.classes.dir.resolved}" to="${dist.jar.resolved}"/>
 +        </pathconvert>
-+        <condition else="" property="jar.usage.message" value="To run this application from the command line without Ant, try:${line.separator}${platform.java} -cp ${run.classpath.with.dist.jar} ${main.class}">
++        <pathconvert property="run.modulepath.with.dist.jar">
++            <path path="${run.modulepath}"/>
++            <map from="${build.classes.dir.resolved}" to="${dist.jar.resolved}"/>
++        </pathconvert>
++        <condition else="" property="jar.usage.message.module.path" value=" --module-path ${run.modulepath.with.dist.jar}">
++            <and>
++                <isset property="modules.supported.internal"/>
++                <length length="0" string="${run.modulepath.with.dist.jar}" when="greater"/>
++            </and>
++        </condition>
++        <condition else="" property="jar.usage.message.class.path" value=" -cp ${run.classpath.with.dist.jar}">
++            <length length="0" string="${run.classpath.with.dist.jar}" when="greater"/>
++        </condition>
++        <condition else=" ${main.class}" property="jar.usage.message.main.class" value=" -m ${module.name}/${main.class}">
++            <isset property="named.module.internal"/>
++        </condition>
++        <condition else="" property="jar.usage.message" value="To run this application from the command line without Ant, try:${line.separator}${platform.java}${jar.usage.message.module.path}${jar.usage.message.class.path}${jar.usage.message.main.class}">
 +            <isset property="main.class.available"/>
 +        </condition>
 +        <condition else="debug" property="jar.usage.level" value="info">
@@ -1246,9 +1455,9 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    </target>
 +    <target depends="init,compile" name="-debug-start-debuggee">
 +        <j2seproject3:debug>
-+            <customize>
++            <customizeDebuggee>
 +                <arg line="${application.args}"/>
-+            </customize>
++            </customizeDebuggee>
 +        </j2seproject3:debug>
 +    </target>
 +    <target depends="init,compile,-debug-start-debugger,-debug-start-debuggee" description="Debug project in IDE." if="netbeans.home" name="debug"/>
@@ -1314,28 +1523,25 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +            </customize>
 +        </profile>
 +    </target>
-+    <target depends="profile-init,compile-test-single" if="profiler.info.jvmargs.agent" name="-profile-test-single-pre72">
++    <target depends="-init-macrodef-junit,profile-init,compile-test-single" if="profiler.info.jvmargs.agent" name="-profile-test-single-pre72">
 +        <fail unless="netbeans.home">This target only works when run from inside the NetBeans IDE.</fail>
 +        <nbprofiledirect>
 +            <classpath>
 +                <path path="${run.test.classpath}"/>
 +            </classpath>
 +        </nbprofiledirect>
-+        <junit dir="${profiler.info.dir}" errorproperty="tests.failed" failureproperty="tests.failed" fork="true" jvm="${profiler.info.jvm}" showoutput="true">
-+            <env key="${profiler.info.pathvar}" path="${profiler.info.agentpath}:${profiler.current.path}"/>
-+            <jvmarg value="${profiler.info.jvmargs.agent}"/>
-+            <jvmarg line="${profiler.info.jvmargs}"/>
-+            <test name="${profile.class}"/>
-+            <classpath>
-+                <path path="${run.test.classpath}"/>
-+            </classpath>
-+            <syspropertyset>
-+                <propertyref prefix="test-sys-prop."/>
-+                <mapper from="test-sys-prop.*" to="*" type="glob"/>
-+            </syspropertyset>
-+            <formatter type="brief" usefile="false"/>
-+            <formatter type="xml"/>
-+        </junit>
++        <j2seproject3:junit excludes="${excludes}" includes="${includes}" testincludes="${profile.class}" testmethods="">
++            <customize>
++                <jvmarg line="${debug-args-line}"/>
++                <jvmarg value="-Xrunjdwp:transport=${debug-transport},address=${jpda.address}"/>
++                <env key="${profiler.info.pathvar}" path="${profiler.info.agentpath}:${profiler.current.path}"/>
++                <jvmarg value="${profiler.info.jvmargs.agent}"/>
++                <jvmarg line="${profiler.info.jvmargs}"/>
++                <classpath>
++                    <path path="${run.test.classpath}"/>
++                </classpath>
++            </customize>
++        </j2seproject3:junit>
 +    </target>
 +    <!--
 +                end of pre NB72 profiling section
@@ -1429,11 +1635,56 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +        <!-- Empty placeholder for easier customization. -->
 +        <!-- You can override this target in the ../build.xml file. -->
 +    </target>
++    <target depends="-init-source-module-properties" if="named.module.internal" name="-init-test-javac-module-properties-with-module">
++        <j2seproject3:modulename property="test.module.name" sourcepath="${test.src.dir}"/>
++        <condition else="-Xmodule:${module.name} --add-reads ${module.name}=ALL-UNNAMED" property="javac.test.compilerargs" value="--add-reads ${test.module.name}=ALL-UNNAMED">
++            <and>
++                <isset property="test.module.name"/>
++                <length length="0" string="${test.module.name}" when="greater"/>
++            </and>
++        </condition>
++    </target>
++    <target depends="-init-source-module-properties" if="named.module.internal" name="-init-test-run-module-properties">
++        <condition else="${module.name}" property="run.test.addexport.source.module.internal" value="${test.module.name}">
++            <and>
++                <isset property="test.module.name"/>
++                <length length="0" string="${test.module.name}" when="greater"/>
++            </and>
++        </condition>
++        <fileset dir="${build.test.classes.dir}" id="run.test.packages.internal" includes="**/*.class"/>
++        <property location="${build.test.classes.dir}" name="build.test.classes.dir.abs.internal"/>
++        <pathconvert pathsep=" " property="run.test.addexports.internal" refid="run.test.packages.internal">
++            <chainedmapper>
++                <regexpmapper from="^(.*)\Q${file.separator}\E.*\.class$$" to="\1"/>
++                <filtermapper>
++                    <uniqfilter/>
++                    <replacestring from="${build.test.classes.dir.abs.internal}" to=""/>
++                </filtermapper>
++                <cutdirsmapper dirs="1"/>
++                <packagemapper from="*" to="--add-exports ${run.test.addexport.source.module.internal}/*=ALL-UNNAMED"/>
++            </chainedmapper>
++        </pathconvert>
++        <condition else="--patch-module ${module.name}=${build.test.classes.dir} --add-modules ${module.name} --add-reads ${module.name}=ALL-UNNAMED ${run.test.addexports.internal}" property="run.test.jvmargs" value="--add-modules ${test.module.name} --add-reads ${test.module.name}=ALL-UNNAMED ${run.test.addexports.internal}">
++            <and>
++                <isset property="test.module.name"/>
++                <length length="0" string="${test.module.name}" when="greater"/>
++            </and>
++        </condition>
++    </target>
++    <target depends="-init-source-module-properties" name="-init-test-module-properties-without-module" unless="named.module.internal">
++        <property name="javac.test.compilerargs" value=""/>
++        <property name="run.test.jvmargs" value=""/>
++    </target>
++    <target depends="-init-test-javac-module-properties-with-module,-init-test-module-properties-without-module" name="-init-test-module-properties"/>
 +    <target if="do.depend.true" name="-compile-test-depend">
 +        <j2seproject3:depend classpath="${javac.test.classpath}" destdir="${build.test.classes.dir}" srcdir="${test.src.dir}"/>
 +    </target>
-+    <target depends="init,deps-jar,compile,-pre-pre-compile-test,-pre-compile-test,-compile-test-depend" if="have.tests" name="-do-compile-test">
-+        <j2seproject3:javac apgeneratedsrcdir="${build.test.classes.dir}" classpath="${javac.test.classpath}" debug="true" destdir="${build.test.classes.dir}" processorpath="${javac.test.processorpath}" srcdir="${test.src.dir}"/>
++    <target depends="init,deps-jar,compile,-init-test-module-properties,-pre-pre-compile-test,-pre-compile-test,-compile-test-depend" if="have.tests" name="-do-compile-test">
++        <j2seproject3:javac apgeneratedsrcdir="${build.test.classes.dir}" classpath="${javac.test.classpath}" debug="true" destdir="${build.test.classes.dir}" modulepath="${javac.test.modulepath}" processorpath="${javac.test.processorpath}" srcdir="${test.src.dir}">
++            <customize>
++                <compilerarg line="${javac.test.compilerargs}"/>
++            </customize>
++        </j2seproject3:javac>
 +        <copy todir="${build.test.classes.dir}">
 +            <fileset dir="${test.src.dir}" excludes="${build.classes.excludes},${excludes}" includes="${includes}"/>
 +        </copy>
@@ -1447,10 +1698,14 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +        <!-- Empty placeholder for easier customization. -->
 +        <!-- You can override this target in the ../build.xml file. -->
 +    </target>
-+    <target depends="init,deps-jar,compile,-pre-pre-compile-test,-pre-compile-test-single" if="have.tests" name="-do-compile-test-single">
++    <target depends="init,deps-jar,compile,-init-test-module-properties,-pre-pre-compile-test,-pre-compile-test-single" if="have.tests" name="-do-compile-test-single">
 +        <fail unless="javac.includes">Must select some files in the IDE or set javac.includes</fail>
 +        <j2seproject3:force-recompile destdir="${build.test.classes.dir}"/>
-+        <j2seproject3:javac apgeneratedsrcdir="${build.test.classes.dir}" classpath="${javac.test.classpath}" debug="true" destdir="${build.test.classes.dir}" excludes="" includes="${javac.includes}" processorpath="${javac.test.processorpath}" sourcepath="${test.src.dir}" srcdir="${test.src.dir}"/>
++        <j2seproject3:javac apgeneratedsrcdir="${build.test.classes.dir}" classpath="${javac.test.classpath}" debug="true" destdir="${build.test.classes.dir}" excludes="" includes="${javac.includes}, module-info.java" modulepath="${javac.test.modulepath}" processorpath="${javac.test.processorpath}" sourcepath="${test.src.dir}" srcdir="${test.src.dir}">
++            <customize>
++                <compilerarg line="${javac.test.compilerargs}"/>
++            </customize>
++        </j2seproject3:javac>
 +        <copy todir="${build.test.classes.dir}">
 +            <fileset dir="${test.src.dir}" excludes="${build.classes.excludes},${excludes}" includes="${includes}"/>
 +        </copy>
@@ -1468,7 +1723,7 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="init" if="have.tests" name="-pre-test-run">
 +        <mkdir dir="${build.test.results.dir}"/>
 +    </target>
-+    <target depends="init,compile-test,-pre-test-run" if="have.tests" name="-do-test-run">
++    <target depends="init,compile-test,-init-test-run-module-properties,-pre-test-run" if="have.tests" name="-do-test-run">
 +        <j2seproject3:test includes="${includes}" testincludes="**/*Test.java"/>
 +    </target>
 +    <target depends="init,compile-test,-pre-test-run,-do-test-run" if="have.tests" name="-post-test-run">
@@ -1480,14 +1735,14 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="init" if="have.tests" name="-pre-test-run-single">
 +        <mkdir dir="${build.test.results.dir}"/>
 +    </target>
-+    <target depends="init,compile-test-single,-pre-test-run-single" if="have.tests" name="-do-test-run-single">
++    <target depends="init,compile-test-single,-init-test-run-module-properties,-pre-test-run-single" if="have.tests" name="-do-test-run-single">
 +        <fail unless="test.includes">Must select some files in the IDE or set test.includes</fail>
 +        <j2seproject3:test excludes="" includes="${test.includes}" testincludes="${test.includes}"/>
 +    </target>
 +    <target depends="init,compile-test-single,-pre-test-run-single,-do-test-run-single" if="have.tests" name="-post-test-run-single">
 +        <fail if="tests.failed" unless="ignore.failing.tests">Some tests failed; see details above.</fail>
 +    </target>
-+    <target depends="init,compile-test-single,-pre-test-run-single,-do-test-run-single,-post-test-run-single" description="Run single unit test." name="test-single"/>
++    <target depends="init,compile-test-single,-init-test-run-module-properties,-pre-test-run-single,-do-test-run-single,-post-test-run-single" description="Run single unit test." name="test-single"/>
 +    <target depends="init,compile-test-single,-pre-test-run-single" if="have.tests" name="-do-test-run-single-method">
 +        <fail unless="test.class">Must select some files in the IDE or set test.class</fail>
 +        <fail unless="test.method">Must select some method in the IDE or set test.method</fail>
@@ -1496,7 +1751,7 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="init,compile-test-single,-pre-test-run-single,-do-test-run-single-method" if="have.tests" name="-post-test-run-single-method">
 +        <fail if="tests.failed" unless="ignore.failing.tests">Some tests failed; see details above.</fail>
 +    </target>
-+    <target depends="init,compile-test-single,-pre-test-run-single,-do-test-run-single-method,-post-test-run-single-method" description="Run single unit test." name="test-single-method"/>
++    <target depends="init,compile-test-single,-init-test-run-module-properties,-pre-test-run-single,-do-test-run-single-method,-post-test-run-single-method" description="Run single unit test." name="test-single-method"/>
 +    <!--
 +                =======================
 +                TEST DEBUGGING SECTION
@@ -1514,8 +1769,8 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="init,compile-test" if="netbeans.home+have.tests" name="-debug-start-debugger-test">
 +        <j2seproject1:nbjpdastart classpath="${debug.test.classpath}" name="${test.class}"/>
 +    </target>
-+    <target depends="init,compile-test-single,-debug-start-debugger-test,-debug-start-debuggee-test" name="debug-test"/>
-+    <target depends="init,compile-test-single,-debug-start-debugger-test,-debug-start-debuggee-test-method" name="debug-test-method"/>
++    <target depends="init,compile-test-single,-init-test-run-module-properties,-debug-start-debugger-test,-debug-start-debuggee-test" name="debug-test"/>
++    <target depends="init,compile-test-single,-init-test-run-module-properties,-debug-start-debugger-test,-debug-start-debuggee-test-method" name="debug-test-method"/>
 +    <target depends="init,-pre-debug-fix,compile-test-single" if="netbeans.home" name="-do-debug-fix-test">
 +        <j2seproject1:nbjpdareload dir="${build.test.classes.dir}"/>
 +    </target>
@@ -1541,9 +1796,9 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +    <target depends="init,compile-single" if="netbeans.home" name="-debug-start-debuggee-applet">
 +        <fail unless="applet.url">Must select one file in the IDE or set applet.url</fail>
 +        <j2seproject3:debug classname="sun.applet.AppletViewer">
-+            <customize>
++            <customizeDebuggee>
 +                <arg value="${applet.url}"/>
-+            </customize>
++            </customizeDebuggee>
 +        </j2seproject3:debug>
 +    </target>
 +    <target depends="init,compile-single,-debug-start-debugger,-debug-start-debuggee-applet" if="netbeans.home" name="debug-applet"/>
@@ -1597,9 +1852,10 @@ diff -r 1fca3f09b1ce nbproject/build-impl.xml
 +        </ant>
 +    </target>
 +</project>
-diff -r 1fca3f09b1ce nbproject/genfiles.properties
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/nbproject/genfiles.properties	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/nbproject/genfiles.properties b/nbproject/genfiles.properties
+new file mode 100644
+--- /dev/null
++++ b/nbproject/genfiles.properties
 @@ -0,0 +1,8 @@
 +build.xml.data.CRC32=7f84474a
 +build.xml.script.CRC32=e2d12cb4
@@ -1607,12 +1863,13 @@ diff -r 1fca3f09b1ce nbproject/genfiles.properties
 +# This file is used by a NetBeans-based IDE to track changes in generated files such as build-impl.xml.
 +# Do not edit this file. You may delete it but then the IDE will never regenerate such files for you.
 +nbproject/build-impl.xml.data.CRC32=7f84474a
-+nbproject/build-impl.xml.script.CRC32=bdfa890e
-+nbproject/build-impl.xml.stylesheet.CRC32=0662a7eb@1.81.0.48
-diff -r 1fca3f09b1ce nbproject/project.properties
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/nbproject/project.properties	Thu Nov 03 22:10:57 2016 +0100
-@@ -0,0 +1,83 @@
++nbproject/build-impl.xml.script.CRC32=3f289837
++nbproject/build-impl.xml.stylesheet.CRC32=8bfb4394@1.85.0.48
+diff --git a/nbproject/project.properties b/nbproject/project.properties
+new file mode 100644
+--- /dev/null
++++ b/nbproject/project.properties
+@@ -0,0 +1,94 @@
 +annotation.processing.enabled=true
 +annotation.processing.enabled.in.editor=false
 +annotation.processing.processors.list=
@@ -1634,8 +1891,12 @@ diff -r 1fca3f09b1ce nbproject/project.properties
 +#debug.transport=dt_socket
 +debug.classpath=\
 +    ${run.classpath}
++debug.modulepath=\
++    ${run.modulepath}
 +debug.test.classpath=\
 +    ${run.test.classpath}
++debug.test.modulepath=\
++    ${run.test.modulepath}
 +# Files in build.classes.dir which should be excluded from distribution jar
 +dist.archive.excludes=
 +# This directory is removed when the project is cleaned:
@@ -1657,6 +1918,7 @@ diff -r 1fca3f09b1ce nbproject/project.properties
 +javac.compilerargs=
 +javac.deprecation=false
 +javac.external.vm=true
++javac.modulepath=
 +javac.processorpath=\
 +    ${javac.classpath}
 +javac.source=1.8
@@ -1665,6 +1927,8 @@ diff -r 1fca3f09b1ce nbproject/project.properties
 +    ${javac.classpath}:\
 +    ${build.classes.dir}:\
 +    ${libs.testng.classpath}
++javac.test.modulepath=\
++    ${javac.modulepath}
 +javac.test.processorpath=\
 +    ${javac.test.classpath}
 +javadoc.additionalparam=
@@ -1690,15 +1954,20 @@ diff -r 1fca3f09b1ce nbproject/project.properties
 +# You may also define separate properties like run-sys-prop.name=value instead of -Dname=value.
 +# To set system properties for unit tests define test-sys-prop.name=value:
 +run.jvmargs=
++run.modulepath=\
++    ${javac.modulepath}
 +run.test.classpath=\
 +    ${javac.test.classpath}:\
 +    ${build.test.classes.dir}
++run.test.modulepath=\
++    ${javac.test.modulepath}
 +source.encoding=UTF-8
 +src.classes.dir=src/classes
 +test.src.dir=test
-diff -r 1fca3f09b1ce nbproject/project.xml
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/nbproject/project.xml	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/nbproject/project.xml b/nbproject/project.xml
+new file mode 100644
+--- /dev/null
++++ b/nbproject/project.xml
 @@ -0,0 +1,15 @@
 +<?xml version="1.0" encoding="UTF-8"?>
 +<project xmlns="http://www.netbeans.org/ns/project/1">
@@ -1715,9 +1984,9 @@ diff -r 1fca3f09b1ce nbproject/project.xml
 +        </data>
 +    </configuration>
 +</project>
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Agent.java
---- a/src/classes/com/sun/tdk/jcov/Agent.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/Agent.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/Agent.java b/src/classes/com/sun/tdk/jcov/Agent.java
+--- a/src/classes/com/sun/tdk/jcov/Agent.java
++++ b/src/classes/com/sun/tdk/jcov/Agent.java
 @@ -55,6 +55,8 @@
  import java.util.regex.Matcher;
  import java.util.regex.Pattern;
@@ -1736,10 +2005,10 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Agent.java
                          return newBuff;
                      }
                  } catch (Throwable e) {
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Instr.java
---- a/src/classes/com/sun/tdk/jcov/Instr.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/Instr.java	Thu Nov 03 22:10:57 2016 +0100
-@@ -35,11 +35,20 @@
+diff --git a/src/classes/com/sun/tdk/jcov/Instr.java b/src/classes/com/sun/tdk/jcov/Instr.java
+--- a/src/classes/com/sun/tdk/jcov/Instr.java
++++ b/src/classes/com/sun/tdk/jcov/Instr.java
+@@ -35,11 +35,21 @@
  import com.sun.tdk.jcov.tools.LoggingFormatter;
  import com.sun.tdk.jcov.tools.OptionDescr;
  import com.sun.tdk.jcov.util.Utils;
@@ -1751,6 +2020,7 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Instr.java
 +import java.io.InputStream;
 +import java.io.OutputStream;
 +import java.nio.file.Files;
++import java.util.function.Supplier;
  import java.util.logging.Level;
  import java.util.logging.Logger;
  
@@ -1760,16 +2030,115 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Instr.java
  /**
   * <p> A tool to statically instrument classfiles to collect coverage. </p> <p>
   * There are 2 coverage collection modes: static and dynamic. In static mode
-@@ -77,7 +86,7 @@
+@@ -76,8 +86,8 @@
+     private boolean recurse;
      private InstrumentationMode mode = InstrumentationMode.BRANCH;
      private AbstractUniversalInstrumenter instrumenter;
-     private ClassMorph morph;
+-    private ClassMorph morph;
 -    private ClassLoader cl = null;
++//    private ClassMorph morph;
 +    private ClassLookup cl = null;
      private static final Logger logger;
  
      static {
-@@ -455,7 +464,7 @@
+@@ -165,10 +175,11 @@
+     }
+ 
+     public void instrumentFile(String file, File outDir, String includeRTJar, String moduleName) throws IOException {
+-        if (morph != null){
+-            morph.setCurrentModuleName(moduleName);
+-            instrumentFile(new File(file), outDir, includeRTJar);
+-        }
++        throw new UnsupportedOperationException();
++//        if (morph != null){
++//            morph.setCurrentModuleName(moduleName);
++//            instrumentFile(new File(file), outDir, includeRTJar);
++//        }
+     }
+ 
+     /**
+@@ -218,31 +229,47 @@
+      * Set default instrumenter
+      */
+     private void setDefaultInstrumenter() {
++        InstrumentationParams params = new InstrumentationParams(innerinvocations, false, false, gennative, genfield, false, genabstract ? InstrumentationOptions.ABSTRACTMODE.DIRECT : InstrumentationOptions.ABSTRACTMODE.NONE, include, exclude, callerInclude, callerExclude, m_include, m_exclude, mode, save_beg, save_end)
++                .setInstrumentSynthetic(gensynthetic)
++                .setInstrumentAnonymous(genanonymous)
++                .setInnerInvocations(innerinvocations);
+ 
+-        if (morph == null) {
+-            InstrumentationParams params = new InstrumentationParams(innerinvocations, false, false, gennative, genfield, false, genabstract ? InstrumentationOptions.ABSTRACTMODE.DIRECT : InstrumentationOptions.ABSTRACTMODE.NONE, include, exclude, callerInclude, callerExclude, m_include, m_exclude, mode, save_beg, save_end)
+-                    .setInstrumentSynthetic(gensynthetic)
+-                    .setInstrumentAnonymous(genanonymous)
+-                    .setInnerInvocations(innerinvocations);
++        Supplier<ClassMorph> createMorph = () -> {
+             if (subsequentInstr) {
+-                morph = new ClassMorph(params, template);
++                return new ClassMorph(params, template);
+             } else {
+-                morph = new ClassMorph(params, null);
++                return new ClassMorph(params, null);
+             }
+-        }
++        };
++
+         if (instrumenter == null) {
+             instrumenter = new AbstractUniversalInstrumenter(true) {
++                private ClassMorph morph;
+                 protected byte[] instrument(byte[] classData, int classLen) throws IOException {
+                     return morph.morph(classData, cl, flushPath);
+                 }
+ 
+                 public void finishWork() {
+-                    if (subsequentInstr) {
+-                        morph.saveData(MERGE.MERGE); // template should be initialized
+-                    } else {
+-                        morph.saveData(template, null, MERGE.OVERWRITE); // template should be initialized
++                }
++
++                @Override
++                protected void processClassDir(File dir, File outDir) throws IOException {
++                    ClassMorph oldMorph = morph;
++                    try {
++                        morph = createMorph.get();
++                        super.processClassDir(dir, outDir);
++                        if (subsequentInstr) {
++                            morph.saveData(MERGE.MERGE); // template should be initialized
++                        } else {
++                            morph.saveData(template, null, MERGE.OVERWRITE); // template should be initialized
++                        }
++                    } finally {
++                        morph.destroy();
++                        morph = oldMorph;
+                     }
+                 }
++
++
+             };
+         }
+     }
+@@ -275,13 +302,13 @@
+      * @param outTemplate template path
+      */
+     public void finishWork(String outTemplate) {
+-        if (instrumenter != null) {
+-            if (subsequentInstr) {
+-                morph.saveData(outTemplate, MERGE.MERGE); // template should be initialized
+-            } else {
+-                morph.saveData(outTemplate, null, MERGE.OVERWRITE); // template should be initialized
+-            }
+-        }
++//        if (instrumenter != null) {
++//            if (subsequentInstr) {
++//                morph.saveData(outTemplate, MERGE.MERGE); // template should be initialized
++//            } else {
++//                morph.saveData(outTemplate, null, MERGE.OVERWRITE); // template should be initialized
++//            }
++//        }
+     }
+ 
+     /**
+@@ -455,7 +482,7 @@
          return flushPath;
      }
  
@@ -1778,7 +2147,7 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Instr.java
          this.cl = cl;
      }
  
-@@ -463,8 +472,15 @@
+@@ -463,8 +490,15 @@
      protected int run() throws Exception {
          Utils.addToClasspath(srcs);
          try {
@@ -1794,7 +2163,7 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Instr.java
          } catch (IOException ex) {
              LoggingFormatter.printStackTrace = true;
              throw new Exception("Critical exception: ", ex);
-@@ -575,7 +591,7 @@
+@@ -575,7 +609,7 @@
  
          mode = InstrumentationOptions.InstrumentationMode.fromString(opts.getValue(InstrumentationOptions.DSC_TYPE));
          template = opts.getValue(InstrumentationOptions.DSC_TEMPLATE);
@@ -1803,9 +2172,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/Instr.java
  
          subsequentInstr = opts.isSet(DSC_SUBSEQUENT);
  
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/JREInstr.java
---- a/src/classes/com/sun/tdk/jcov/JREInstr.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/JREInstr.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/JREInstr.java b/src/classes/com/sun/tdk/jcov/JREInstr.java
+--- a/src/classes/com/sun/tdk/jcov/JREInstr.java
++++ b/src/classes/com/sun/tdk/jcov/JREInstr.java
 @@ -43,6 +43,8 @@
  import java.util.logging.Level;
  import java.util.logging.Logger;
@@ -2453,9 +2822,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/JREInstr.java
  
      @Override
      protected EnvHandler defineHandler() {
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java
---- a/src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java b/src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java
+--- a/src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java
++++ b/src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstrumenter.java
 @@ -159,6 +159,9 @@
              return true;
          }
@@ -2466,9 +2835,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/insert/AbstractUniversalInstru
          ensureClassBufLength(classLength, false);
          FileInputStream fis = null;
  
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAdapter.java
 @@ -420,7 +420,7 @@
              prev = curr;
          }
@@ -2487,9 +2856,10 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/BranchCodeMethodAda
          }
      }
  
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/ClassLookup.java
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/src/classes/com/sun/tdk/jcov/instrument/ClassLookup.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/ClassLookup.java b/src/classes/com/sun/tdk/jcov/instrument/ClassLookup.java
+new file mode 100644
+--- /dev/null
++++ b/src/classes/com/sun/tdk/jcov/instrument/ClassLookup.java
 @@ -0,0 +1,7 @@
 +package com.sun.tdk.jcov.instrument;
 +
@@ -2498,9 +2868,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/ClassLookup.java
 +    public interface ClassLookup {
 +        public InputStream findClass(String name);
 +    }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java
---- a/src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java b/src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java
 @@ -45,6 +45,9 @@
  import org.objectweb.asm.Opcodes;
  import org.objectweb.asm.util.TraceClassVisitor;
@@ -2542,9 +2912,18 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/ClassMorph.java
          DataClass k = new DataClass(root.rootId(), fullname, moduleName.substring(7), checksum, false);
  //        ClassVisitor cv = shouldFlush ? new TraceClassVisitor
  //                (cw, DebugUtils.getPrintWriter(fullname, Options.getFlushPath())) :
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/DataRoot.java
---- a/src/classes/com/sun/tdk/jcov/instrument/DataRoot.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/DataRoot.java	Thu Nov 03 22:10:57 2016 +0100
+@@ -607,4 +610,8 @@
+                 || fullname.startsWith("sun")
+                 || fullname.startsWith("java/util");
+     }
++
++    public void destroy() {
++        root.destroy();
++    }
+ }
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/DataRoot.java b/src/classes/com/sun/tdk/jcov/instrument/DataRoot.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/DataRoot.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/DataRoot.java
 @@ -1318,11 +1318,11 @@
          }
      }
@@ -2562,9 +2941,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/DataRoot.java
  
      public static DataRoot setCounts(DataRoot root, long[] counts) throws Exception {
          return applyCounts(root, counts, false);
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClassAdapter.java
 @@ -44,7 +44,7 @@
      private final InstrumentationParams params;
  
@@ -2592,9 +2971,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/DeferringMethodClas
              @Override
              public void visitLocalVariable(String arg0, String arg1, String arg2, Label arg3, Label arg4, int arg5) {
                  //super.visitLocalVariable(arg0, arg1, arg2, arg3, arg4, arg5);
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdapter.java
 @@ -43,7 +43,7 @@
      EntryCodeMethodAdapter(final MethodVisitor mv,
              final DataMethodEntryOnly method,
@@ -2604,9 +2983,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/EntryCodeMethodAdap
          this.method = method;
          this.params = params;
      }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java
---- a/src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java b/src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisitor.java
 @@ -40,7 +40,7 @@
      final FieldVisitor fv;
  
@@ -2616,9 +2995,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/FieldAnnotationVisi
          this.fv = fv;
          this.field = field;
      }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapter.java
 @@ -44,7 +44,7 @@
          final AnnotationVisitor av2;
  
@@ -2637,9 +3016,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/ForkingMethodAdapte
          this.mv1 = mv1;
          this.mv2 = mv2;
      }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttributeClassAdapter.java
 @@ -45,7 +45,7 @@
      }
  
@@ -2649,9 +3028,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/InstrumentedAttribu
      }
  
      public void visitAttribute(Attribute attr) {
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.java
 @@ -38,7 +38,7 @@
      private final InstrumentationParams params;
  
@@ -2661,9 +3040,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/InvokeClassAdapter.
          this.params = params;
      }
  
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter.java
 @@ -70,7 +70,7 @@
              Collections.synchronizedMap(new HashMap<String, Integer>());
  
@@ -2673,9 +3052,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/InvokeMethodAdapter
          this.className = className;
          this.params = params;
      }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAdapter.java
 @@ -45,7 +45,7 @@
  
      MethodAnnotationAdapter(final MethodVisitor mv,
@@ -2685,9 +3064,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/MethodAnnotationAda
          this.meth = method;
      }
  }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMethodAdapter.java
 @@ -45,7 +45,7 @@
  
      public OffsetRecordingMethodAdapter(final MethodVisitor mv,
@@ -2714,9 +3093,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/OffsetRecordingMeth
      }
  
      public void visitJumpInsn(final int opcode, final Label label) {
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java b/src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWriter.java
 @@ -24,7 +24,6 @@
   */
  package com.sun.tdk.jcov.instrument;
@@ -3058,9 +3437,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/OverriddenClassWrit
 +    public static final ClassLookup DEFAULT_CLASS_LOOKUP = forClassLoader(ClassLoader.getSystemClassLoader());
 +
  }
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAdapter.java
 @@ -41,7 +41,7 @@
      private final boolean isBegin;
  
@@ -3070,9 +3449,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/SavePointsMethodAda
          this.isBegin = isBegin;
      }
  
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java
---- a/src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java b/src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java
+--- a/src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java
++++ b/src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodAdapter.java
 @@ -63,7 +63,7 @@
      public static final Map<String, Integer> map = new HashMap<String, Integer>();
  
@@ -3082,9 +3461,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/instrument/StaticInvokeMethodA
          this.className = className;
          this.params = params;
          this.methName = methName;
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/io/Reader.java
---- a/src/classes/com/sun/tdk/jcov/io/Reader.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/io/Reader.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/io/Reader.java b/src/classes/com/sun/tdk/jcov/io/Reader.java
+--- a/src/classes/com/sun/tdk/jcov/io/Reader.java
++++ b/src/classes/com/sun/tdk/jcov/io/Reader.java
 @@ -36,10 +36,15 @@
  import com.sun.tdk.jcov.instrument.reader.ReaderFactory;
  import com.sun.tdk.jcov.tools.SimpleScaleCompressor;
@@ -3235,9 +3614,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/io/Reader.java
      public static DataRoot readXMLHeader(String fileName) throws FileFormatException {
          try {
              return readXMLHeader(new FileInputStream(fileName));
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/report/ClassCoverage.java
---- a/src/classes/com/sun/tdk/jcov/report/ClassCoverage.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/report/ClassCoverage.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/report/ClassCoverage.java b/src/classes/com/sun/tdk/jcov/report/ClassCoverage.java
+--- a/src/classes/com/sun/tdk/jcov/report/ClassCoverage.java
++++ b/src/classes/com/sun/tdk/jcov/report/ClassCoverage.java
 @@ -365,6 +365,9 @@
          return lineCoverage.isLineAnc(lineNum);
      }
@@ -3248,9 +3627,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/report/ClassCoverage.java
      public void setAncInfo(String ancInfo){
          isInAnc = (ancInfo != null && !ancInfo.isEmpty());
          this.ancInfo = ancInfo;
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/report/ProductCoverage.java
---- a/src/classes/com/sun/tdk/jcov/report/ProductCoverage.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/report/ProductCoverage.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/report/ProductCoverage.java b/src/classes/com/sun/tdk/jcov/report/ProductCoverage.java
+--- a/src/classes/com/sun/tdk/jcov/report/ProductCoverage.java
++++ b/src/classes/com/sun/tdk/jcov/report/ProductCoverage.java
 @@ -99,6 +99,10 @@
          this(readFileImage(filename, true), null, null, null, true);
      }
@@ -3262,9 +3641,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/report/ProductCoverage.java
      /**
       * <p> Creates a new instance of ProductCoverage which is the top level
       * coverage object in the coverage objects tree. DataRoot is read from
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/Collect.java
---- a/src/classes/com/sun/tdk/jcov/runtime/Collect.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/runtime/Collect.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/runtime/Collect.java b/src/classes/com/sun/tdk/jcov/runtime/Collect.java
+--- a/src/classes/com/sun/tdk/jcov/runtime/Collect.java
++++ b/src/classes/com/sun/tdk/jcov/runtime/Collect.java
 @@ -309,6 +309,12 @@
              isInternal = true;
              if (PropertyFinder.isVMReady()) {
@@ -3278,9 +3657,103 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/Collect.java
                  if (!saverClassnameString.startsWith("/*@")) {
                      addSaver(instantiateSaver(saverClassnameString));
                      PropertyFinder.addAutoShutdownSave();
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java
---- a/src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/runtime/TemplateFileSaver.java b/src/classes/com/sun/tdk/jcov/runtime/DumpSaver.java
+copy from src/classes/com/sun/tdk/jcov/runtime/TemplateFileSaver.java
+copy to src/classes/com/sun/tdk/jcov/runtime/DumpSaver.java
+--- a/src/classes/com/sun/tdk/jcov/runtime/TemplateFileSaver.java
++++ b/src/classes/com/sun/tdk/jcov/runtime/DumpSaver.java
+@@ -24,48 +24,61 @@
+  */
+ package com.sun.tdk.jcov.runtime;
+ 
+-import com.sun.tdk.jcov.util.MapHelper;
++import java.io.DataInputStream;
++import java.io.DataOutputStream;
++import java.io.FileInputStream;
++import java.io.FileOutputStream;
++import java.io.IOException;
++import java.io.InputStream;
++import java.io.OutputStream;
++import java.util.BitSet;
++
+ 
+ /**
+  * @author Dmitry Fazunenko
+  * @author Alexey Fedorchenko
+  */
+-public class TemplateFileSaver implements JCovSaver {
++public class DumpSaver implements JCovSaver {
+ 
+-    /**
+-     * Default value for output file
+-     */
+-    private static final String def_filename_xml = "result.xml";
+-    /**
+-     * Default value for template file
+-     */
+-    private static final String def_template = "template.xml";
+-    private String filename = def_filename_xml;
+-    private String template = def_template;
+-
+-    public TemplateFileSaver() {
+-    }
+-
+-    public TemplateFileSaver(String filename, String template) {
+-        this.filename = filename;
+-        this.template = template;
++    public DumpSaver() {
+     }
+ 
+     public void saveResults() {
+-        template = PropertyFinder.findValue("template", template);
+-        filename = PropertyFinder.findValue("file", filename);
++        String targetFile = PropertyFinder.findValue("target.file", null);
++        
++        try {
++            byte[] originalData = new byte[0];
++            try (InputStream in = new FileInputStream(targetFile);
++                 DataInputStream din = new DataInputStream(in)) {
++                originalData = new byte[din.readInt()];
++                din.readFully(originalData);
++            } catch (IOException ex) {
++                //ok
++            }
+ 
+-        try {
+-            MapHelper.mapCounts(filename, template, Collect.counts());
++            try (OutputStream out = new FileOutputStream(targetFile);
++                 DataOutputStream dout = new DataOutputStream(out)) {
++                BitSet data = new BitSet();
++                long[] counts = Collect.counts();
++                for (int i = 0; i < counts.length; i++) {
++                    if (counts[i] > 0)
++                        data.set(i);
++                }
++                byte[] packedData = data.toByteArray();
++                for (int i = 0; i < Math.min(packedData.length, originalData.length); i++) {
++                    packedData[i] |= originalData[i];
++                }
++                dout.writeInt(packedData.length);
++                dout.write(packedData);
++            }
+         } catch (Exception e) {
+             System.err.println(
+-                    "Exception occurred while saving result into " + filename + " file.\n"
+-                    + "Template file: " + template + "\n"
++                    "Exception occurred while saving result into " + targetFile + " file.\n"
+                     + "Exception details: " + e.getMessage());
+-            if (PropertyFinder.findValue("verbose", null) != null) {
++//            if (PropertyFinder.findValue("verbose", null) != null) {
+                 System.err.println("\nStack trace: ");
+                 e.printStackTrace(System.err);
+-            }
++//            }
+         }
+     }
+ }
+diff --git a/src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java b/src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java
+--- a/src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java
++++ b/src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java
 @@ -107,7 +107,7 @@
              final long[] dataVal = new long[data.length];
              final int[] dataIdx = new int[data.length];
@@ -3290,9 +3763,9 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/JCovSESocketSaver.java
                  if (data[i] != 0) {
                      dataIdx[count] = i;
                      dataVal[count] = data[i];
-diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
---- a/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java	Tue Mar 01 15:57:49 2016 +0300
-+++ b/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java b/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
+--- a/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
++++ b/src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
 @@ -32,6 +32,7 @@
  import com.sun.tdk.jcov.instrument.XmlContext;
  import com.sun.tdk.jcov.io.Reader;
@@ -3313,7 +3786,7 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
  
  /**
   *
-@@ -61,7 +66,21 @@
+@@ -61,7 +66,25 @@
  
      public void saveResults(String filename) throws Exception {
          //if (isWindows) {
@@ -3323,10 +3796,14 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
 +        }
 +        for (Entry<String, List<DataClass>> e : fileName2Classes.entrySet()) {
 +            DataRoot newRoot = new DataRoot(root.getArgs(), root.isAttached(), root.getParams());
-+            for (DataClass clazz : e.getValue()) {
-+                newRoot.addClass(clazz);
++            try {
++                for (DataClass clazz : e.getValue()) {
++                    newRoot.addClass(clazz);
++                }
++                doSaveResults(newRoot, filename + "/" + e.getKey() + ".xml");
++            } finally {
++                newRoot.destroy();
 +            }
-+            doSaveResults(newRoot, filename + "/" + e.getKey() + ".xml");
 +        }
 +    }
 +    private void doSaveResults(DataRoot root, String filename) throws Exception {
@@ -3335,9 +3812,10 @@ diff -r 1fca3f09b1ce src/classes/com/sun/tdk/jcov/runtime/JCovXMLFileSaver.java
              FileChannel channel = new RandomAccessFile(file, "rw").getChannel();
  
              for (int i = LOCK_REPEAT; i != 0; i--) {
-diff -r 1fca3f09b1ce test/jcov/InstrumentTest.java
---- /dev/null	Thu Jan 01 00:00:00 1970 +0000
-+++ b/test/jcov/InstrumentTest.java	Thu Nov 03 22:10:57 2016 +0100
+diff --git a/test/jcov/InstrumentTest.java b/test/jcov/InstrumentTest.java
+new file mode 100644
+--- /dev/null
++++ b/test/jcov/InstrumentTest.java
 @@ -0,0 +1,252 @@
 +/*
 + * To change this license header, choose License Headers in Project Properties.

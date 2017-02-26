@@ -37,7 +37,7 @@
              <property name="javatestjar" location="${basedir}/release/modules/ext/javatest.jar" />
         </ant>
         <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov.jar" todir="release/modules/ext" />
-        <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov_network_saver.jar" todir="release/modules/ext" />
+        <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov_file_saver.jar" todir="release/modules/ext" />
     </target>
     <target name="-check-javatest-available">
         <condition property="javatest.available">

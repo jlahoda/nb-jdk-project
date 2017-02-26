@@ -43,9 +43,14 @@
  */
 package org.netbeans.modules.jdk.jtreg;
 
+import java.io.DataInputStream;
 import java.io.File;
+import java.io.FileInputStream;
+import java.io.IOException;
+import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.BitSet;
 import java.util.Collections;
 import java.util.Iterator;
 import java.util.List;
@@ -59,6 +64,13 @@ import java.util.logging.Logger;
 import javax.swing.event.ChangeListener;
 
 import com.sun.tdk.jcov.data.FileFormatException;
+import com.sun.tdk.jcov.instrument.DataBlock;
+import com.sun.tdk.jcov.instrument.DataBlockTarget;
+import com.sun.tdk.jcov.instrument.DataBranch;
+import com.sun.tdk.jcov.instrument.DataClass;
+import com.sun.tdk.jcov.instrument.DataMethod;
+import com.sun.tdk.jcov.instrument.DataRoot;
+import com.sun.tdk.jcov.io.Reader;
 import com.sun.tdk.jcov.report.AncFilter;
 import com.sun.tdk.jcov.report.ClassCoverage;
 import com.sun.tdk.jcov.report.DataType;
@@ -130,27 +142,49 @@ public class CoverageProviderImpl implements CoverageProvider {
             return null;
         }
 
-        File jcovData = new File(new File(new File(org.netbeans.modules.jdk.jtreg.Utilities.jtregOutputDir(sourceFile), "jcov"), "jcov.xml"), fqn.replace(".", "/") + ".xml");
+        File jcovRawData = new File(new File(org.netbeans.modules.jdk.jtreg.Utilities.jtregOutputDir(sourceFile), "jcov"), "jcov");
+        File jcovTemplate = new File(new File(new File(org.netbeans.modules.jdk.jtreg.Utilities.jtregOutputDir(sourceFile), "jcov"), "template.xml"), fqn.replace(".", "/") + ".xml");
 
-        if (!Objects.equals(jcovFile, jcovData)) {
+        if (!Objects.equals(jcovFile, jcovRawData)) {
             if (jcovFile != null)
                 FileUtil.removeFileChangeListener(jcovFileListener, jcovFile);
-            jcovFile = jcovData;
+            jcovFile = jcovRawData;
             FileUtil.addFileChangeListener(jcovFileListener, jcovFile);
         }
 
-        if (!jcovData.canRead()) {
+        if (!jcovTemplate.canRead() || !jcovRawData.canRead()) {
             return null;
         }
 
-        long lastModified = jcovData.lastModified();
+        long lastModified = jcovTemplate.lastModified();
         String pack = fqn.substring(0, fqn.lastIndexOf('.'));
         String simpleFileName = sourceFile.getNameExt();
 
         ProductCoverage coverage;
         
         try {
-            coverage = new ProductCoverage(jcovData.getAbsolutePath(), new AncFilter[] {
+            DataRoot root;
+            try (InputStream in = new FileInputStream(jcovRawData);
+                 DataInputStream din = new DataInputStream(in)) {
+                byte[] originalData = new byte[din.readInt()];
+                din.readFully(originalData);
+                BitSet coverageBits = BitSet.valueOf(originalData);
+                root = Reader.readXML(jcovTemplate.getAbsolutePath(), true, null);
+                for (DataClass clazz : root.getClasses()) {
+                    for (DataMethod meth : clazz.getMethods()) {
+                        for (DataBlock block : meth.getBlocks()) {
+                            block.setCount(coverageBits.get(block.getId()) ? 1 : 0);
+                        }
+                        for (DataBranch branch : meth.getBranches()) {
+                            for (DataBlockTarget target : branch.getBranchTargets()) {
+                                target.setCount(coverageBits.get(target.getId()) ? 1 : 0);
+                            }
+                        }
+                    }
+                }
+            }
+            
+            coverage = new ProductCoverage(root, null, null, null, true, false, new AncFilter[] {
                 new CatchANCFilter(),
                 new DeprecatedANCFilter(),
                 new EmptyANCFilter(),
@@ -158,6 +192,9 @@ public class CoverageProviderImpl implements CoverageProvider {
                 new ThrowANCFilter(),
             });
         } catch (FileFormatException ex) {
+            Logger.getLogger(CoverageProviderImpl.class.getName()).log(Level.FINE, null, ex);
+            return new CoverageData(Collections.emptyList(), -1);
+        } catch (IOException ex) {
             Logger.getLogger(CoverageProviderImpl.class.getName()).log(Level.FINE, null, ex);
             return new CoverageData(Collections.emptyList(), -1);
         }
