@@ -334,6 +334,7 @@ public class ActionProviderImpl implements ActionProvider {
                                         } catch (Throwable ex) {
                                             Exceptions.printStackTrace(ex);
                                         }
+                                        break;
                                     case COMMAND_PROFILE_TEST_SINGLE:
                                         if (!BuildAction.NAME.equals(action.getName()) && seen++ == 0) {
                                             options.addAll(profiler.getCommandLineOptions());
