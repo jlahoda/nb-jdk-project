@@ -5,7 +5,14 @@
 <project name="org.netbeans.modules.jdk.jtreg.lib" default="netbeans" basedir=".">
     <description>Builds, tests, and runs the project org.netbeans.modules.jdk.jtreg.lib.</description>
     <import file="nbproject/build-impl.xml"/>
-    <target name="build-init" depends="harness.build-init,-download-javatest,-download-asmtools,-download-jtreg,-download-jcov,-download-asm">
+    <target name="build-init" depends="harness.build-init,-download-jtharness,-download-asmtools,-download-jtreg,-download-jcov,-download-asm">
+        <ant dir="jtharness-src-${jtharness.changeset}/build" inheritAll="false" useNativeBasedir="true">
+             <target name="clean" />
+             <target name="jar" />
+             <property name="BUILD_DIR" location="${build.dir}/jtharness" />
+             <property name="servletjar" location="${nbplatform.active.dir}/ide/modules/ext/servlet-2.2.jar" />
+        </ant>
+        <copy file="${build.dir}/jtharness/binaries/lib/javatest.jar" todir="release/modules/ext" />
         <ant dir="asmtools-src-${asmtools.changeset}/build" inheritAll="false" useNativeBasedir="true">
              <target name="clean" />
              <target name="build" />
@@ -39,20 +46,19 @@
         <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov.jar" todir="release/modules/ext" />
         <copy file="${basedir}/jcov-src-${jcov.changeset}/JCOV_BUILD/jcov_3.0/jcov_file_saver.jar" todir="release/modules/ext" />
     </target>
-    <target name="-check-javatest-available">
-        <condition property="javatest.available">
-             <available file="${basedir}/release/modules/ext/javatest.jar" />
+    <target name="-check-jtharness-available">
+        <condition property="jtharness.available">
+             <available file="${basedir}/jtharness-src-${jtharness.changeset}" />
         </condition>
     </target>
-    <target name="-download-javatest" depends="-check-javatest-available" unless="javatest.available">
+    <target name="-download-jtharness" depends="-check-jtharness-available" unless="jtharness.available">
         <mkdir dir="${build.dir}" />
-        <property name="jtharness.url" value="http://download.java.net/jtharness/4.4.1/Rel/jtharness-4_4_1-MR1-bin-b13-20_dec_2011.zip" />
-        <get src="${jtharness.url}" dest="${build.dir}/jtharness-4_4_1-MR1-bin-b13-20_dec_2011.zip" usetimestamp="true"/>
-        <unzip src="${build.dir}/jtharness-4_4_1-MR1-bin-b13-20_dec_2011.zip" dest="${basedir}/release/modules/ext/">
-            <patternset>
-                <include name="lib/javatest.jar"/>
-            </patternset>
-            <mapper type="flatten"/>
+        <property name="jtharness.url" value="http://hg.openjdk.java.net/code-tools/jtharness/archive/${jtharness.changeset}.zip" />
+        <get src="${jtharness.url}" dest="${build.dir}/jtharness-${jtharness.changeset}.zip" usetimestamp="true"/>
+        <unzip src="${build.dir}/jtharness-${jtharness.changeset}.zip" dest="${basedir}/jtharness-src-${jtharness.changeset}">
+            <mapper>
+	      <cutdirsmapper dirs="1" />
+	    </mapper>
         </unzip>
     </target>
     <target name="-check-asmtools-available">

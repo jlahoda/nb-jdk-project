@@ -255,3 +255,22 @@ diff -r b1a0023720e8 src/share/classes/com/sun/javatest/regtest/tool/Tool.java
              return rp;
          } catch (TestSuite.Fault f) {
              // TODO: fix bad string -- need more helpful resource here
+diff -r 581ef0a59e3c src/share/classes/com/sun/javatest/regtest/tool/Help.java
+--- a/src/share/classes/com/sun/javatest/regtest/tool/Help.java Sun Mar 19 15:44:37 2017 +0100
++++ b/src/share/classes/com/sun/javatest/regtest/tool/Help.java Sun Mar 19 15:45:01 2017 +0100
+@@ -325,13 +325,13 @@
+     public void showCommandLineHelp(PrintWriter out) {
+         HelpTree commandHelpTree = new HelpTree();
+ 
+-        // Try to override the default comparator
++/*        // Try to override the default comparator
+         try{
+             Field f = HelpTree.class.getDeclaredField("nodeComparator");
+             f.setAccessible(true);
+             f.set(null, new NodeComparator());
+         } catch (IllegalAccessException | IllegalArgumentException | NoSuchFieldException | SecurityException ignore) {
+-        }
++        }*/
+ 
+         Integer nodeIndent = Integer.getInteger("javatest.help.nodeIndent");
+         if (nodeIndent != null)
