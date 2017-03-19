@@ -45,6 +45,8 @@ import java.beans.PropertyChangeEvent;
 import java.beans.PropertyChangeListener;
 import java.io.File;
 import java.io.IOException;
+import java.lang.reflect.InvocationTargetException;
+import java.lang.reflect.Method;
 import java.net.MalformedURLException;
 import java.net.URISyntaxException;
 import java.net.URL;
@@ -71,6 +73,7 @@ import org.netbeans.modules.cnd.api.project.DefaultSystemSettings;
 import org.netbeans.modules.cnd.api.project.IncludePath;
 import org.netbeans.modules.cnd.api.project.NativeFileItem;
 import org.netbeans.modules.cnd.api.project.NativeFileItem.Language;
+import org.netbeans.modules.cnd.api.project.NativeFileItem.LanguageFlavor;
 import org.netbeans.modules.cnd.api.project.NativeProject;
 import org.netbeans.modules.cnd.api.project.NativeProjectItemsListener;
 import org.netbeans.modules.cnd.api.project.NativeProjectRegistry;
@@ -115,7 +118,27 @@ public class NativeProjectImpl implements NativeProject {
         this.jdkRoot = jdkRoot;
 
         systemIncludes = new ArrayList<>();
-        for (String path : DefaultSystemSettings.getDefault().getSystemIncludes(Language.C, this)) {
+        DefaultSystemSettings dss = DefaultSystemSettings.getDefault();
+        List<String> systemIncludesStrings = Collections.emptyList();
+        try {
+            systemIncludesStrings = (List<String>) dss.getClass()
+                                                      .getDeclaredMethod("getSystemIncludes",
+                                                                         Language.class,
+                                                                         NativeProject.class)
+                                                      .invoke(dss, Language.C, this);
+        } catch (ReflectiveOperationException ex1) {
+            try {
+                systemIncludesStrings = (List<String>) dss.getClass()
+                                                          .getDeclaredMethod("getSystemIncludes",
+                                                                             Language.class,
+                                                                             LanguageFlavor.class,
+                                                                             NativeProject.class)
+                                                          .invoke(dss, Language.C, LanguageFlavor.C99, this);
+            } catch (ReflectiveOperationException ex2) {
+                Logger.getLogger(NativeProjectImpl.class.getName()).log(Level.FINE, null, ex2);
+            }
+        }
+        for (String path : systemIncludesStrings) {
             FileObject fo = FileUtil.toFileObject(new File(path));
             if (fo != null)
                 systemIncludes.add(new IncludePath(FSPath.toFSPath(fo)));
@@ -412,7 +435,26 @@ public class NativeProjectImpl implements NativeProject {
 
     @Override
     public List<String> getSystemMacroDefinitions() {
-        return DefaultSystemSettings.getDefault().getSystemMacros(Language.C, this);
+        DefaultSystemSettings dss = DefaultSystemSettings.getDefault();
+        try {
+            return (List<String>) dss.getClass()
+                                     .getDeclaredMethod("getSystemMacros",
+                                                        Language.class,
+                                                        NativeProject.class)
+                                     .invoke(dss, Language.C, this);
+        } catch (ReflectiveOperationException ex1) {
+            try {
+                return (List<String>) dss.getClass()
+                                         .getDeclaredMethod("getSystemIncludes",
+                                                            Language.class,
+                                                            LanguageFlavor.class,
+                                                            NativeProject.class)
+                                         .invoke(dss, Language.C, LanguageFlavor.C99, this);
+            } catch (ReflectiveOperationException ex2) {
+                Logger.getLogger(NativeProjectImpl.class.getName()).log(Level.FINE, null, ex2);
+            }
+        }
+        return Collections.emptyList();
     }
 
     @Override
