@@ -212,6 +212,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
      * Copied from JavaClassPathConstants, to avoid depending on a new version of it.
      */
     private static final String MODULE_COMPILE_PATH = "modules/compile";
+    private static final String MODULE_CLASS_PATH = "modules/classpath";
 
     @Override
     public ClassPath findClassPath(FileObject file, String type) {
@@ -230,7 +231,9 @@ public class ClassPathProviderImpl implements ClassPathProvider {
 
             if (ClassPath.BOOT.equals(type)) {
                 return ClassPath.EMPTY;
-            } else if (ClassPath.COMPILE.equals(type) || MODULE_COMPILE_PATH.equals(type)) {
+            } else if (ClassPath.COMPILE.equals(type) ||
+                       MODULE_COMPILE_PATH.equals(type) ||
+                       MODULE_CLASS_PATH.equals(type)) {
                 return testsCompileCP;
             }
 
