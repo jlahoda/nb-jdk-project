@@ -9,3 +9,4 @@ netbeans_platform
 ^lib.jtreg/jtreg-src-.*
 ^lib.jtreg/asmtools-src-.*
 ^lib.jtreg/jcov-src-.*
+^lib.jtreg/jtharness-src-.*
