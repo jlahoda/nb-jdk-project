@@ -454,6 +454,10 @@ public class ModuleDescription {
                 result.add(dep.moduleName);
             }
         }
+
+        public boolean isConsolidatedRepo() {
+            return consolidatedRepository;
+        }
     }
 
     public static final class Dependency {

@@ -86,9 +86,9 @@ public class ClassPathProviderImpl implements ClassPathProvider {
                 testProperties =  search.getFileObject("TEST.properties");
             }
 
-            if (search.getName().equals("test") && Utilities.isJDKRepository(search.getParent())) {
-                boolean javac = Utilities.isLangtoolsRepository(search.getParent()) &&
-                                ShortcutUtils.getDefault().shouldUseCustomTest(search.getParent().getNameExt(), FileUtil.getRelativePath(search.getParent(), file));
+            if (search.getFileObject("TEST.ROOT") != null) {
+                boolean javac = (Utilities.isLangtoolsRepository(search.getParent()) || search.getNameExt().equals("langtools")) &&
+                                ShortcutUtils.getDefault().shouldUseCustomTest("langtools", FileUtil.getRelativePath(search.getParent(), file));
                 //XXX: hack to make things work for langtools:
                 switch (type) {
                     case ClassPath.COMPILE:

@@ -127,15 +127,29 @@ public class ActionProviderImpl implements ActionProvider {
         this.project = project;
 
         FileObject repo = project.currentModule != null ? project.getProjectDirectory().getParent().getParent()
-                                                              : project.getProjectDirectory().getParent();
-        File scriptFile = InstalledFileLocator.getDefault().locate("scripts/build-" + repo.getNameExt() + ".xml", "org.netbeans.modules.jdk.project", false);
-        File genericScriptFile = InstalledFileLocator.getDefault().locate("scripts/build-generic.xml", "org.netbeans.modules.jdk.project", false);
-        if (scriptFile == null || !ShortcutUtils.getDefault().shouldUseCustomBuild(repo.getNameExt(), FileUtil.getRelativePath(repo, project.getProjectDirectory()))) {
-            scriptFile = genericScriptFile;
-        }
+                                                        : project.getProjectDirectory().getParent();
+
         repository = repo;
+
+        File scriptFile = InstalledFileLocator.getDefault().locate("scripts/build-generic.xml", "org.netbeans.modules.jdk.project", false);
+
+        genericScript = FileUtil.toFileObject(scriptFile);
+
+        if (project.moduleRepository.isConsolidatedRepo()) {
+            String repoName = ShortcutUtils.getDefault().inferLegacyRepository(project);
+            File fastBuild = InstalledFileLocator.getDefault().locate("scripts/build-" + repoName + "-consol.xml", "org.netbeans.modules.jdk.project", false);
+            if (fastBuild != null && ShortcutUtils.getDefault().shouldUseCustomBuild(repoName, FileUtil.getRelativePath(repo, project.getProjectDirectory()))) {
+                scriptFile = fastBuild;
+            }
+        } else {
+            String repoName = repo.getNameExt();
+            File fastBuild = InstalledFileLocator.getDefault().locate("scripts/build-" + repoName + ".xml", "org.netbeans.modules.jdk.project", false);
+            if (fastBuild != null && ShortcutUtils.getDefault().shouldUseCustomBuild(repoName, FileUtil.getRelativePath(repo, project.getProjectDirectory()))) {
+                scriptFile = fastBuild;
+            }
+        }
+
         script = FileUtil.toFileObject(scriptFile);
-        genericScript = FileUtil.toFileObject(genericScriptFile);
 
         String[] supported = new String[0];
 

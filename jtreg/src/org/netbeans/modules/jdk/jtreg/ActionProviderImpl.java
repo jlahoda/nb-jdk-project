@@ -439,6 +439,13 @@ public class ActionProviderImpl implements ActionProvider {
 
     private static boolean newStyleXPatch(FileObject testFile) {
         Project prj = FileOwnerQuery.getOwner(testFile);
+
+        if (prj.getProjectDirectory().getFileObject("../../src/java.base/share/classes/java/lang/Object.java") != null &&
+            prj.getProjectDirectory().getFileObject("../../src/java.compiler/share/classes/javax/tools/ToolProvider.java") != null) {
+            //consolidated repo:
+            return true;
+        }
+
         FileObject testRoot = prj.getProjectDirectory().getFileObject("../../test/TEST.ROOT");
 
         if (testRoot == null)
@@ -492,8 +499,9 @@ public class ActionProviderImpl implements ActionProvider {
 
         if (buildDir != null) {
             FileObject repo = prj.getProjectDirectory().getParent().getParent();
-            return !(repo.getNameExt().equals("langtools") &&
-                    ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile)));
+            String repoName = ShortcutUtils.getDefault().inferLegacyRepository(prj);
+            return !("langtools".equals(repoName) &&
+                    ShortcutUtils.getDefault().shouldUseCustomTest(repoName, FileUtil.getRelativePath(repo, testFile)));
         }
 
         return false;
@@ -512,9 +520,17 @@ public class ActionProviderImpl implements ActionProvider {
                 buildClasses = prj.getProjectDirectory().getFileObject("../../build/classes");
             }
         } else {
-            File buildDir = BuildUtils.getBuildTargetDir(testFile);
-            FileObject buildDirFO = FileUtil.toFileObject(buildDir);
-            buildClasses = buildDirFO != null ? buildDirFO.getFileObject("jdk/modules") : null;
+            String inferredRepoName = ShortcutUtils.getDefault().inferLegacyRepository(prj);
+            if ("langtools".equals(inferredRepoName) &&
+                ShortcutUtils.getDefault().shouldUseCustomTest(inferredRepoName, FileUtil.getRelativePath(repo, testFile))) {
+                File buildDir = BuildUtils.getBuildTargetDir(testFile);
+                FileObject buildDirFO = FileUtil.toFileObject(buildDir);
+                buildClasses = buildDirFO != null ? buildDirFO.getFileObject("../build/langtools/modules") : null;
+            } else {
+                File buildDir = BuildUtils.getBuildTargetDir(testFile);
+                FileObject buildDirFO = FileUtil.toFileObject(buildDir);
+                buildClasses = buildDirFO != null ? buildDirFO.getFileObject("jdk/modules") : null;
+            }
         }
 
         return buildClasses != null ? FileUtil.toFile(buildClasses).getAbsoluteFile() : null;
@@ -565,7 +581,8 @@ public class ActionProviderImpl implements ActionProvider {
     static String idealBuildTarget(FileObject testFile) {
         Project prj = FileOwnerQuery.getOwner(testFile);
         FileObject repo = prj.getProjectDirectory().getParent().getParent();
-        if (ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
+        String repoName = ShortcutUtils.getDefault().inferLegacyRepository(prj);
+        if (ShortcutUtils.getDefault().shouldUseCustomTest(repoName, FileUtil.getRelativePath(repo, testFile))) {
             return COMMAND_BUILD_FAST;
         } else {
             return COMMAND_BUILD_GENERIC_FAST;

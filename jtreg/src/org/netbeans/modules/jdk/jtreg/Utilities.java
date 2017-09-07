@@ -77,8 +77,9 @@ public class Utilities {
     }
 
     public static boolean isLangtoolsRepository(FileObject root) {
-        return root.getFileObject("src/share/classes/com/sun/tools/javac/main/Main.java") != null ||
-               root.getFileObject("src/jdk.compiler/share/classes/com/sun/tools/javac/main/Main.java") != null;
+        return (root.getFileObject("src/share/classes/com/sun/tools/javac/main/Main.java") != null ||
+                root.getFileObject("src/jdk.compiler/share/classes/com/sun/tools/javac/main/Main.java") != null) &&
+                root.getFileObject("src/java.base/share/classes/java/lang/Object.java") == null;
     }
 
     public static FileObject getLangtoolsKeyRoot(FileObject root) {
@@ -99,6 +100,9 @@ public class Utilities {
             if (repo.getNameExt().equals("langtools") &&
                 ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
                 buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../build");
+            } else if ("langtools".equals(ShortcutUtils.getDefault().inferLegacyRepository(prj)) &&
+                ShortcutUtils.getDefault().shouldUseCustomTest(repo.getNameExt(), FileUtil.getRelativePath(repo, testFile))) {
+                buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../build/langtools");
             }
         } else {
             buildDir = new File(FileUtil.toFile(prj.getProjectDirectory()), "../../../build");

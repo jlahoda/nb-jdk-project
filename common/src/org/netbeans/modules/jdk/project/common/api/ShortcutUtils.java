@@ -43,15 +43,20 @@ package org.netbeans.modules.jdk.project.common.api;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.Enumeration;
+import java.util.HashSet;
 import java.util.MissingResourceException;
 import java.util.PropertyResourceBundle;
 import java.util.ResourceBundle;
+import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 import java.util.regex.PatternSyntaxException;
+import org.netbeans.api.project.Project;
+import org.openide.filesystems.FileObject;
 
 /**
  *
@@ -88,6 +93,15 @@ public class ShortcutUtils {
             };
         }
         this.data = data;
+    }
+
+    private static final Set<String> LANGTOOLS_MODULES =
+            new HashSet<>(Arrays.asList("java.compiler", "jdk.compiler",
+                                        "jdk.javadoc", "jdk.jdeps", "jdk.jshell"));
+    public String inferLegacyRepository(Project prj) {
+        if (LANGTOOLS_MODULES.contains(prj.getProjectDirectory().getNameExt()))
+            return "langtools";
+        return "unknown";
     }
 
     public boolean shouldUseCustomBuild(String repoName, String pathInRepo) {
