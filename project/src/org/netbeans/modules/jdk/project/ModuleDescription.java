@@ -101,7 +101,7 @@ public class ModuleDescription {
     private static final Map<URI, ModuleRepository> jdkRoot2Repository = new HashMap<>();
 
     public static ModuleRepository getModules(FileObject project) throws Exception {
-        Pair<FileObject, Boolean> jdkRootAndType = findJDKRoot(project);
+        Pair<FileObject, Pair<Boolean, Boolean>> jdkRootAndType = findJDKRoot(project);
 
         if (jdkRootAndType == null)
             return null;
@@ -135,7 +135,7 @@ public class ModuleDescription {
             return null;
         
         synchronized (ModuleDescription.class) {
-            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, hasModuleInfos, jdkRootAndType.second(), moduleDescriptions));
+            jdkRoot2Repository.put(jdkRoot.toURI(), repository = new ModuleRepository(jdkRoot, hasModuleInfos, jdkRootAndType.second().first(), jdkRootAndType.second().second(), moduleDescriptions));
         }
 
         return repository;
@@ -145,14 +145,18 @@ public class ModuleDescription {
         return jdkRoot2Repository.get(forURI);
     }
 
-    private static Pair<FileObject, Boolean> findJDKRoot(FileObject projectDirectory) {
+    private static Pair<FileObject, Pair<Boolean, Boolean>> findJDKRoot(FileObject projectDirectory) {
+        if (projectDirectory.getFileObject("../../../open/src/java.base/share/classes/module-info.java") != null && 
+            projectDirectory.getFileObject("../../../open/src/java.base/share/classes/module-info.java") != null &&
+            projectDirectory.getFileObject("../../../open/src/java.compiler/share/classes/module-info.java") != null)
+            return Pair.of(projectDirectory.getFileObject("../../.."), Pair.of(true, true));
         if (projectDirectory.getFileObject("../../src/java.base/share/classes/module-info.java") != null &&
             projectDirectory.getFileObject("../../src/java.compiler/share/classes/module-info.java") != null)
-            return Pair.of(projectDirectory.getFileObject("../.."), true);
+            return Pair.of(projectDirectory.getFileObject("../.."), Pair.of(true, false));
         if (projectDirectory.getFileObject("../../../modules.xml") != null || projectDirectory.getFileObject("../../../jdk/src/java.base/share/classes/module-info.java") != null)
-            return Pair.of(projectDirectory.getFileObject("../../.."), false);
+            return Pair.of(projectDirectory.getFileObject("../../.."), Pair.of(false, false));
         if (projectDirectory.getFileObject("../../../../modules.xml") != null || projectDirectory.getFileObject("../../../../jdk/src/java.base/share/classes/module-info.java") != null)
-            return Pair.of(projectDirectory.getFileObject("../../../.."), false);
+            return Pair.of(projectDirectory.getFileObject("../../../.."), Pair.of(false, false));
 
         return null;
     }
@@ -356,12 +360,14 @@ public class ModuleDescription {
         private final FileObject root;
         private final boolean hasModuleInfos;
         private final boolean consolidatedRepository;
+        private final boolean explicitOpen;
         public final List<ModuleDescription> modules;
 
-        private ModuleRepository(FileObject root, boolean hasModuleInfos, boolean consolidatedRepository, List<ModuleDescription> modules) {
+        private ModuleRepository(FileObject root, boolean hasModuleInfos, boolean consolidatedRepository, boolean explicitOpen, List<ModuleDescription> modules) {
             this.root = root;
             this.hasModuleInfos = hasModuleInfos;
             this.consolidatedRepository = consolidatedRepository;
+            this.explicitOpen = explicitOpen;
             this.modules = modules;
         }
 
@@ -380,7 +386,16 @@ public class ModuleDescription {
 
         public FileObject findModuleRoot(String moduleName) {
             if (consolidatedRepository) {
-                FileObject module = root.getFileObject("src/" + moduleName);
+                FileObject module;
+
+                if (explicitOpen) {
+                    module = root.getFileObject("open/src/" + moduleName);
+                    if (module == null) {
+                        module = root.getFileObject("closed/src/" + moduleName);
+                    }
+                } else {
+                    module = root.getFileObject("src/" + moduleName);
+                }
 
                 if (module != null && module.isFolder())
                     return module;
@@ -416,16 +431,17 @@ public class ModuleDescription {
         }
 
         public String moduleTests(String moduleName) {
+            String open = explicitOpen ? "open/" : "";
             //TODO? for now, tests are assigned to java.base, java.compiler and java.xml, depending on the location of the tests:
             switch (moduleName) {
                 case "java.base":
-                    return consolidatedRepository ? "${jdkRoot}/test/jdk/" : "${jdkRoot}/jdk/test/";
+                    return consolidatedRepository ? "${jdkRoot}/" + open + "test/jdk/" : "${jdkRoot}/jdk/test/";
                 case "java.compiler":
-                    return consolidatedRepository ? "${jdkRoot}/test/langtools/" : "${jdkRoot}/langtools/test/";
+                    return consolidatedRepository ? "${jdkRoot}/test/" + open + "langtools/" : "${jdkRoot}/langtools/test/";
                 case "java.xml":
-                    return consolidatedRepository ? "${jdkRoot}/test/jaxp/" : "${jdkRoot}/jaxp/test/";
+                    return consolidatedRepository ? "${jdkRoot}/test/" + open + "jaxp/" : "${jdkRoot}/jaxp/test/";
                 case "jdk.scripting.nashorn":
-                    return consolidatedRepository ? "${jdkRoot}/test/nashorn/" : "${jdkRoot}/nashorn/test/";
+                    return consolidatedRepository ? "${jdkRoot}/test/" + open + "nashorn/" : "${jdkRoot}/nashorn/test/";
             }
             return null;
         }
