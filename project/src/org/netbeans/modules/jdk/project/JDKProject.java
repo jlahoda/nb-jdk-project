@@ -57,6 +57,7 @@ import java.util.Map;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
+import java.util.stream.Collectors;
 
 import javax.swing.Icon;
 import javax.swing.event.ChangeListener;
@@ -193,6 +194,28 @@ public class JDKProject implements Project {
                     break;
             }
 
+            FileObject shareClasses = projectDir.getFileObject("share/classes");
+
+            if (shareClasses != null && Arrays.stream(shareClasses.getChildren()).anyMatch(c -> c.isFolder() && c.getNameExt().contains("."))) {
+                List<String> submodules = Arrays.stream(shareClasses.getChildren()).filter(c -> c.isFolder()).map(c -> c.getNameExt()).collect(Collectors.toList());
+                List<Root> newRoots = new ArrayList<>();
+
+                for (Root r : roots) {
+                    if (r.kind != RootKind.MAIN_SOURCES) {
+                        newRoots.add(r);
+                        continue;
+                    }
+
+                    newRoots.add(new Root(r.relPath, r.displayName, RootKind.MAIN_SOURCES, evaluator, Pattern.compile("module-info.java"), null));
+
+                    for (String submodule : submodules) {
+                        newRoots.add(new Root(r.relPath + submodule + "/src/", r.displayName + submodule + "/src/", RootKind.MAIN_SOURCES, evaluator, null));
+                    }
+                }
+
+                roots.clear();
+                roots.addAll(newRoots);
+            }
             String testRoots = moduleRepository.moduleTests(currentModule.name);
 
             if (testRoots != null) {
@@ -268,15 +291,20 @@ public class JDKProject implements Project {
         public final String relPath;
         public final String displayName;
         public final RootKind kind;
+        public final Pattern includes;
         public final Pattern excludes;
         private final PropertyEvaluator evaluator;
         private URL location;
         private final ChangeSupport cs = new ChangeSupport(this);
         private Root(String relPath, String displayName, RootKind kind, PropertyEvaluator evaluator, Pattern excludes) {
+            this(relPath, displayName, kind, evaluator, null, excludes);
+        }
+        private Root(String relPath, String displayName, RootKind kind, PropertyEvaluator evaluator, Pattern includes, Pattern excludes) {
             this.relPath = relPath;
             this.displayName = displayName;
             this.kind = kind;
             this.evaluator = evaluator;
+            this.includes = includes;
             this.excludes = excludes;
             this.evaluator.addPropertyChangeListener(this);
 

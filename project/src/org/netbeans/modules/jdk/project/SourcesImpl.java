@@ -143,7 +143,7 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
                 SourceGroup sg = root2SourceGroup.get(root);
 
                 if (sg == null) {
-                    sg = new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.excludes);
+                    sg = new SourceGroupImpl(GenericSources.group(project, src, root.displayName, root.displayName, null, null), root.includes, root.excludes);
 
                     root2SourceGroup.put(root, sg);
                 }
@@ -228,10 +228,12 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
 
         //XXX: listeners
         private final SourceGroup delegate;
+        private final Pattern includes;
         private final Pattern excludes;
 
-        public SourceGroupImpl(SourceGroup delegate, Pattern excludes) {
+        public SourceGroupImpl(SourceGroup delegate, Pattern includes, Pattern excludes) {
             this.delegate = delegate;
+            this.includes = includes;
             this.excludes = excludes;
         }
 
@@ -258,9 +260,15 @@ public class SourcesImpl implements Sources, FileChangeListener, ChangeListener 
         @Override
         public boolean contains(FileObject file) {
             if (delegate.contains(file)) {
-                if (excludes == null) return true;
-                
+                if (includes == null && excludes == null) return true;
+
                 String rel = FileUtil.getRelativePath(delegate.getRootFolder(), file);
+
+                if (includes != null && !includes.matcher(rel).matches()) {
+                    return false;
+                }
+
+                if (excludes == null) return true;
 
                 return !excludes.matcher(rel).matches();
             } else {
