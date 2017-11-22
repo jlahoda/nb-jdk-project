@@ -525,7 +525,7 @@ public class ActionProviderImpl implements ActionProvider {
                 ShortcutUtils.getDefault().shouldUseCustomTest(inferredRepoName, FileUtil.getRelativePath(repo, testFile))) {
                 File buildDir = BuildUtils.getBuildTargetDir(testFile);
                 FileObject buildDirFO = FileUtil.toFileObject(buildDir);
-                buildClasses = buildDirFO != null ? buildDirFO.getFileObject("../build/langtools/modules") : null;
+                buildClasses = buildDirFO != null ? buildDirFO.getFileObject("../langtools/modules") : null;
             } else {
                 File buildDir = BuildUtils.getBuildTargetDir(testFile);
                 FileObject buildDirFO = FileUtil.toFileObject(buildDir);
