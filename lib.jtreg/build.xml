@@ -16,8 +16,7 @@
         <ant dir="asmtools-src-${asmtools.changeset}/build" inheritAll="false" useNativeBasedir="true">
              <target name="clean" />
              <target name="build" />
-             <property name="build.root" location="${build.dir}" />
-             <property name="buildprod.root" location="${build.dir}" />
+             <property name="BUILD_DIR" location="${build.dir}/asmtools-6.0-build" />
         </ant>
         <copy file="${build.dir}/asmtools-6.0-build/binaries/lib/asmtools.jar" todir="release/modules/ext" />
         <path id="junit.path">
