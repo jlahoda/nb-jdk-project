@@ -338,7 +338,7 @@ public class ModuleDescription {
             hasJavaBaseDependency |= depName.equals("java.base");
         }
 
-        if (!hasJavaBaseDependency)
+        if (!hasJavaBaseDependency && !"java.base".equals(moduleName))
             depends.listIterator().add(new Dependency("java.base", false, false));
 
         Map<String, List<String>> exports = new LinkedHashMap<>();
