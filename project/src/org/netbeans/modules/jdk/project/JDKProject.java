@@ -63,6 +63,7 @@ import javax.swing.Icon;
 import javax.swing.event.ChangeListener;
 
 import org.netbeans.api.annotations.common.NullAllowed;
+import org.netbeans.api.java.classpath.ClassPath;
 import org.netbeans.api.project.Project;
 import org.netbeans.api.project.ProjectInformation;
 import org.netbeans.api.project.ProjectManager;
@@ -239,6 +240,7 @@ public class JDKProject implements Project {
                                     new AccessibilityQueryImpl(currentModule),
                                     new CustomizerProviderImpl(this),
                                     new Settings(this),
+                                    new BinaryForSourceQueryImpl(this, cpp.getSourceCP()),
                                     this);
         this.lookup = LookupProviderSupport.createCompositeLookup(base, "Projects/org-netbeans-modules-jdk-project-JDKProject/Lookup");
     }
