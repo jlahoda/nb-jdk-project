@@ -54,6 +54,7 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Properties;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.netbeans.api.java.classpath.ClassPath;
@@ -207,7 +208,15 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             Method commit = transactionContextClass.getDeclaredMethod("commit");
             Method register = transactionContextClass.getDeclaredMethod("register", Class.class, serviceClass);
             Class<?> classIndexEventsTransactionClass = Class.forName("org.netbeans.modules.java.source.usages.ClassIndexEventsTransaction", false, cl);
-            Method cietcCreate = classIndexEventsTransactionClass.getDeclaredMethod("create", boolean.class);
+            Method cietcCreate;
+            Object[] cietcCreateParams;
+            try {
+                cietcCreate = classIndexEventsTransactionClass.getDeclaredMethod("create", boolean.class);
+                cietcCreateParams = new Object[] {true};
+            } catch (NoSuchMethodException ex) {
+                cietcCreate = classIndexEventsTransactionClass.getDeclaredMethod("create", boolean.class, Supplier.class);
+                cietcCreateParams = new Object[] {true, (Supplier<Boolean>) () -> true};
+            }
             Class<?> classIndexManagerClass = Class.forName("org.netbeans.modules.java.source.usages.ClassIndexManager", false, cl);
             Method cimcGetDefault = classIndexManagerClass.getDeclaredMethod("getDefault");
             Method createUsagesQuery = classIndexManagerClass.getDeclaredMethod("createUsagesQuery", URL.class, boolean.class);
@@ -217,7 +226,7 @@ public class ClassPathProviderImpl implements ClassPathProvider {
             Field initialized = stateClass.getDeclaredField("INITIALIZED");
 
             Object transaction = beginTrans.invoke(null);
-            register.invoke(transaction, classIndexEventsTransactionClass, cietcCreate.invoke(null, true));
+            register.invoke(transaction, classIndexEventsTransactionClass, cietcCreate.invoke(null, cietcCreateParams));
             try {
                 Object classIndexImpl = createUsagesQuery.invoke(cimcGetDefault.invoke(null), root.toURL(), true);
                 setState.invoke(classIndexImpl, initialized.get(null));
