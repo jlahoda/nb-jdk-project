@@ -51,6 +51,7 @@ import java.util.List;
 import java.util.Map;
 import javax.swing.event.ChangeListener;
 import org.netbeans.api.annotations.common.NonNull;
+import org.netbeans.spi.project.ProjectConfigurationProvider;
 import org.openide.filesystems.FileObject;
 import org.openide.util.ChangeSupport;
 import org.openide.util.Lookup;
@@ -92,8 +93,11 @@ public class RemotePlatformImpl {//implements RemotePlatform {
     public RemotePlatformImpl(ConfigurationImpl.ProviderImpl configurations) {
         this.configurations = configurations;
         this.configurations.addPropertyChangeListener(new PropertyChangeListener() {
-            @Override public void propertyChange(PropertyChangeEvent arg0) {
-                cs.fireChange();
+            @Override public void propertyChange(PropertyChangeEvent evt) {
+                if (ProjectConfigurationProvider.PROP_CONFIGURATION_ACTIVE.equals(evt.getPropertyName()) ||
+                    evt.getPropertyName() == null) {
+                    cs.fireChange();
+                }
             }
         });
     }
