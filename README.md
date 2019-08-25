@@ -2,6 +2,8 @@
 
 A plugin/module for the NetBeans IDE to directly open OpenJDK sources.
 
+__Note__: This plugin is obsolette, as the support for OpenJDK sources has been merged directly into Apache NetBeans.
+
 ### Installation ###
 
 Go to Tools/Plugins, click on the Settings tab, and Add `http://lahoda.info/hudson/job/nb-jdk-project/lastSuccessfulBuild/artifact/build/updates/updates.xml` as a new plugin center. From this plugin center, install *JDK Project for NetBeans* and *JTReg Support*.
